@@ -5,7 +5,6 @@ Jai itself, with a VS Code extension.
 
 > ⚠️ **Experimental project.** Built and tested against a leaked, outdated build of the Jai compiler
 > — not the current closed beta. Newer compiler versions of compiler might not work with this, until i can access i cant test and update.
-> compatibility is guaranteed.
 
 ## Features
 
