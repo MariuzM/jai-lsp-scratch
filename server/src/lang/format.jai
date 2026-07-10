@@ -255,7 +255,10 @@ parse_assign_line :: (line: Out_Line) -> Const_Line {
     name := slice(t, start, k - start);
 
     spaces := 0;
-    while k < t.count && t[k] == #char " " { spaces += 1; k += 1; }
+    while k < t.count && t[k] == #char " " {
+        spaces += 1;
+        k += 1;
+    }
     if spaces == 0 { return result; }
     if k >= t.count || t[k] != #char "=" { return result; }
     k += 1;
@@ -402,13 +405,22 @@ parse_case_line :: (line: Out_Line) -> Const_Line {
         if t[m] == #char "\"" {
             m += 1;
             while m < t.count {
-                if t[m] == #char "\\" { m += 2; continue; }
-                if t[m] == #char "\"" { m += 1; break; }
+                if t[m] == #char "\\" {
+                    m += 2;
+                    continue;
+                }
+                if t[m] == #char "\"" {
+                    m += 1;
+                    break;
+                }
                 m += 1;
             }
             continue;
         }
-        if t[m] == #char ";" { semi = m; break; }
+        if t[m] == #char ";" {
+            semi = m;
+            break;
+        }
         m += 1;
     }
     if semi == -1 { return result; }
@@ -416,7 +428,10 @@ parse_case_line :: (line: Out_Line) -> Const_Line {
     prefix := slice(t, k, semi - k + 1);
     m = semi + 1;
     spaces := 0;
-    while m < t.count && t[m] == #char " " { spaces += 1; m += 1; }
+    while m < t.count && t[m] == #char " " {
+        spaces += 1;
+        m += 1;
+    }
     if spaces == 0 { return result; }
     body := slice(t, m, t.count - m);
     if body.count == 0 { return result; }
@@ -509,7 +524,10 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
     paren := 0;
     brace_positions: [64] s64;
     brace_bc:        [64] s64;
-    brace_count := 0;
+    brace_count     := 0;
+    first_brace_pos := -1;
+    first_brace_bc  := 0;
+    inner_semis     := 0;
 
     content := trim(s);
     is_case := is_case_line(content);
@@ -546,8 +564,14 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
         if c == #char "\"" {
             k += 1;
             while k < s.count {
-                if s[k] == #char "\\" { k += 2; continue; }
-                if s[k] == #char "\"" { k += 1; break; }
+                if s[k] == #char "\\" {
+                    k += 2;
+                    continue;
+                }
+                if s[k] == #char "\"" {
+                    k += 1;
+                    break;
+                }
                 k += 1;
             }
             continue;
@@ -566,6 +590,10 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
 
         if c == {
             case #char "{";
+                if curly == 0 && first_brace_pos == -1 {
+                    first_brace_pos = k;
+                    first_brace_bc  = bc;
+                }
                 if brace_count < 64 {
                     brace_positions[brace_count] = k;
                     brace_bc[brace_count]        = bc;
@@ -592,6 +620,9 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
                 }
             }
         }
+        if c == #char ";" && curly == 1 && paren <= 0 && first_brace_pos != -1 {
+            inner_semis += 1;
+        }
 
         k += 1;
     }
@@ -605,8 +636,30 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
             return p + 1;
         }
     }
+
+    if bc == 0 && curly == 0 && first_brace_pos != -1 && inner_semis >= 2 {
+        prefix := slice(s, 0, first_brace_pos);
+        if !contains_word(prefix, "struct") && !contains_word(prefix, "enum") && !contains_word(prefix, "union") {
+            block_comment_depth.* = first_brace_bc;
+            return first_brace_pos + 1;
+        }
+    }
+
     block_comment_depth.* = bc;
     return -1;
+}
+
+contains_word :: (s: string, w: string) -> bool {
+    i := 0;
+    while i + w.count <= s.count {
+        if slice(s, i, w.count) == w
+        && (i == 0 || !is_word_char(s[i-1]))
+        && (i + w.count == s.count || !is_word_char(s[i + w.count])) {
+            return true;
+        }
+        i += 1;
+    }
+    return false;
 }
 
 Chain_Kind :: enum {
@@ -658,8 +711,14 @@ parse_chain_line :: (line: Out_Line) -> Chain_Line {
             if c == #char "\"" {
                 k += 1;
                 while k < t.count {
-                    if t[k] == #char "\\" { k += 2; continue; }
-                    if t[k] == #char "\"" { k += 1; break; }
+                    if t[k] == #char "\\" {
+                        k += 2;
+                        continue;
+                    }
+                    if t[k] == #char "\"" {
+                        k += 1;
+                        break;
+                    }
                     k += 1;
                 }
                 continue;
@@ -748,8 +807,14 @@ brace_statement :: (stmt: string) -> string {
         if c == #char "\"" {
             k += 1;
             while k < stmt.count {
-                if stmt[k] == #char "\\" { k += 2; continue; }
-                if stmt[k] == #char "\"" { k += 1; break; }
+                if stmt[k] == #char "\\" {
+                    k += 2;
+                    continue;
+                }
+                if stmt[k] == #char "\"" {
+                    k += 1;
+                    break;
+                }
                 k += 1;
             }
             continue;
@@ -832,8 +897,14 @@ scan_line :: (s: *Format_State, line: string, line_index: s64) {
         if c == #char "\"" {
             k += 1;
             while k < line.count {
-                if line[k] == #char "\\" { k += 2; continue; }
-                if line[k] == #char "\"" { k += 1; break; }
+                if line[k] == #char "\\" {
+                    k += 2;
+                    continue;
+                }
+                if line[k] == #char "\"" {
+                    k += 1;
+                    break;
+                }
                 k += 1;
             }
             continue;

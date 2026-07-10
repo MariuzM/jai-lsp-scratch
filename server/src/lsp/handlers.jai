@@ -64,7 +64,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.4.0\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.5.0\"}}");
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -348,14 +348,20 @@ directive_target :: (path: string, text: string, line: s64, character: s64) -> s
         q1 := -1;
         i  := key_index + key.count;
         while i < line_text.count {
-            if line_text[i] == #char "\"" { q1 = i; break; }
+            if line_text[i] == #char "\"" {
+                q1 = i;
+                break;
+            }
             i += 1;
         }
         if q1 == -1 { return ""; }
         q2 := -1;
         i = q1 + 1;
         while i < line_text.count {
-            if line_text[i] == #char "\"" { q2 = i; break; }
+            if line_text[i] == #char "\"" {
+                q2 = i;
+                break;
+            }
             i += 1;
         }
         if q2 == -1 { return ""; }
