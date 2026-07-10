@@ -68,10 +68,10 @@ index_file :: (path: string, content: string) {
                     kind := Decl_Kind.CONSTANT;
                     if i + 3 < toks.count {
                         n := toks[i+3].type;
-                        if n == .KEYWORD_STRUCT || n == .KEYWORD_UNION            kind = .STRUCT;
-                        else if n == .KEYWORD_ENUM || n == .KEYWORD_ENUM_FLAGS    kind = .ENUM;
-                        else if n == cast(Token_Type) #char "("                   kind = .PROCEDURE;
-                        else if n == .KEYWORD_INLINE || n == .KEYWORD_NO_INLINE   kind = .PROCEDURE;
+                        if n == .KEYWORD_STRUCT || n == .KEYWORD_UNION           kind = .STRUCT;
+                        else if n == .KEYWORD_ENUM || n == .KEYWORD_ENUM_FLAGS   kind = .ENUM;
+                        else if n == cast(Token_Type) #char "("                  kind = .PROCEDURE;
+                        else if n == .KEYWORD_INLINE || n == .KEYWORD_NO_INLINE  kind = .PROCEDURE;
                     }
                     add_decl(path, content, t, kind);
                     if kind == .ENUM  index_enum_members(path, toks, i + 3, t.name);

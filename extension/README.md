@@ -84,6 +84,50 @@ handle :: (res: *Response, v: Json_Value) {
 }
 ```
 
+### More examples
+
+Inline `if` / `else if` / `else` chains — statements align two spaces after the longest condition:
+
+```jai
+parse_digit :: (c: u8) -> s32 {
+    if c >= #char "0" && c <= #char "9"       return c - #char "0";
+    else if c >= #char "a" && c <= #char "f"  return c - #char "a" + 10;
+    else                                      return -1;
+}
+
+resolve :: (link: string, path: string) -> string {
+    if link[0] == #char "/"  result = copy_string(link);
+    else                     result = tprint("%/%", dir_of(path), link);
+    return result;
+}
+```
+
+Enum members with values and inline `case` bodies:
+
+```jai
+Token_Kind :: enum {
+    IDENT  :: 256;
+    NUMBER :: 257;
+    STRING :: 258;
+}
+
+describe :: (t: Token_Kind) -> string {
+    if t == {
+        case .IDENT;  return "identifier";
+        case .NUMBER; return "number";
+        case;         return "other";
+    }
+}
+```
+
+`:=` declarations, including multi-return lvalues:
+
+```jai
+email        := json_get_string(root, "email");
+password     := json_get_string(root, "password");
+age, has_age := json_get(root, "age");
+```
+
 ### What it formats
 
 **Indentation & whitespace**

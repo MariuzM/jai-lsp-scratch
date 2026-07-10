@@ -119,7 +119,7 @@ resolve_compiler_path :: () {
         link.data  = buffer.data;
         link.count = n;
         if link[0] == #char "/"  path = tprint("%", link);
-        else  path = tprint("%/%", dir_of(path), link);
+        else                     path = tprint("%/%", dir_of(path), link);
     }
 
     if path != g_compiler {
