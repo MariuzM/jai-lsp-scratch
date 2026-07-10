@@ -14,7 +14,7 @@ handle_message :: (body: string) {
     if method == {
         case "initialize";                  handle_initialize(id, params);
         case "initialized";                 handle_initialized();
-        case "shutdown";                    g_shutdown = true;  respond(id, "null");
+        case "shutdown";                    handle_shutdown(id);
         case "exit";                        g_exit = true;
         case "textDocument/didOpen";        handle_did_open(params);
         case "textDocument/didChange";      handle_did_change(params);
@@ -64,7 +64,12 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.2.0\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.3.0\"}}");
+}
+
+handle_shutdown :: (id: Json_Value) {
+    g_shutdown = true;
+    respond(id, "null");
 }
 
 handle_initialized :: () {

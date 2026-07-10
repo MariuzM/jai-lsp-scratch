@@ -130,6 +130,14 @@ age, has_age := json_get(root, "age");
 
 ### What it formats
 
+**Statement layout**
+
+- One statement per line: code after an opening `{` moves to the next line (when the block
+  spans multiple lines), and multiple `;`-terminated statements on one line are split apart —
+  this also disambiguates traps like `if cond  a; b;` where `b;` runs unconditionally
+- Idiomatic single-line forms are kept: `if x { y(); }` one-liners that close on the same line,
+  inline `case .X; stmt;` bodies, and `if cond  stmt;`
+
 **Indentation & whitespace**
 
 - 4-space indentation from brace/paren/bracket depth; tabs in leading whitespace are replaced

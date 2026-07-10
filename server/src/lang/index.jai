@@ -50,7 +50,7 @@ index_file :: (path: string, content: string) {
             case cast(Token_Type) #char "}";
                 if curly_stack.count > 0 {
                     last_closed_transparent = curly_stack[curly_stack.count - 1];
-                    if !last_closed_transparent  opaque_depth -= 1;
+                    if !last_closed_transparent { opaque_depth -= 1; };
                     curly_stack.count -= 1;
                 }
             case cast(Token_Type) #char "("; paren += 1;

@@ -291,7 +291,7 @@ parse_hex4 :: (p: *Json_Parser) -> u32, bool {
         if c >= #char "0" && c <= #char "9"       digit = c - #char "0";
         else if c >= #char "a" && c <= #char "f"  digit = c - #char "a" + 10;
         else if c >= #char "A" && c <= #char "F"  digit = c - #char "A" + 10;
-        else  return 0, false;
+        else                                      return 0, false;
         value = (value << 4) | digit;
     }
     p.pos += 4;
