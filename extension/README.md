@@ -15,6 +15,9 @@ Jai itself, with a VS Code extension.
 - **Hover** — declaration signature and origin (`src/http.jai:168` or `Jai/String/module.jai:928`)
 - **Completion** — all indexed declarations, including imported modules
 - **Document / workspace symbols**
+- **Semantic highlighting** — identifiers known to the index are colored by what they are:
+  `enum`, `struct`, `enumMember`, `function` — so a type like `Token_Type` gets your theme's enum
+  color at every use site, not just its declaration
 - **Diagnostics** — runs the Jai compiler on your entry file (auto-detected via `main ::`) on save
   and surfaces errors inline
 - **Formatter** — see below

@@ -26,6 +26,7 @@ handle_message :: (body: string) {
         case "textDocument/hover";          handle_hover(id, params);
         case "textDocument/completion";     handle_completion(id, params);
         case "textDocument/formatting";     handle_formatting(id, params);
+        case "textDocument/semanticTokens/full"; handle_semantic_tokens(id, params);
         case "workspace/symbol";            handle_workspace_symbol(id, params);
         case "$/setTrace";                      // ignore
         case "$/cancelRequest";                 // ignore
@@ -64,7 +65,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.5.0\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.6.0\"}}");
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -275,6 +276,32 @@ handle_formatting :: (id: Json_Value, params: Json_Value) {
     respond(id, tprint(
         "[{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":%,\"character\":0}},\"newText\":\"%\"}]",
         line_count + 1, json_escape(formatted)));
+}
+
+handle_semantic_tokens :: (id: Json_Value, params: Json_Value) {
+    path     := request_path(params);
+    text, ok := get_text(path);
+    if !ok {
+        respond(id, "{\"data\":[]}");
+        return;
+    }
+    spans := semantic_spans(text);
+
+    builder: String_Builder;
+    append(*builder, "{\"data\":[");
+    prev_line: s32 = 0;
+    prev_col:  s32 = 0;
+    for spans {
+        if it_index > 0 { append(*builder, ","); }
+        delta_line := it.line - prev_line;
+        delta_col  := it.col;
+        if delta_line == 0 { delta_col = it.col - prev_col; }
+        print_to_builder(*builder, "%,%,%,%,0", delta_line, delta_col, it.length, it.token_kind);
+        prev_line = it.line;
+        prev_col  = it.col;
+    }
+    append(*builder, "]}");
+    respond(id, builder_to_string(*builder));
 }
 
 handle_workspace_symbol :: (id: Json_Value, params: Json_Value) {

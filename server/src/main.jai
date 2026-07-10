@@ -3,6 +3,7 @@
 #import "File";
 #import "File_Utilities";
 #import "Jai_Lexer";
+#import "Hash_Table";
 #import "Process";
 Posix :: #import "POSIX";
 

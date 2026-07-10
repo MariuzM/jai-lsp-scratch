@@ -147,7 +147,52 @@ get_line :: (content: string, line0: s64) -> string {
     return "";
 }
 
+Ident_Span :: struct {
+    line:       s32;
+    col:        s32;
+    length:     s32;
+    token_kind: s32;
+}
+
+semantic_spans :: (content: string) -> [..] Ident_Span {
+    spans: [..] Ident_Span;
+
+    kinds: Table(string, s32);
+    init(*kinds, 8192);
+    for g_decls {
+        index := semantic_kind_index(it.kind);
+        if index == -1 { continue; }
+        existing, found := table_find(*kinds, it.name);
+        if found && existing <= index { continue; }
+        table_set(*kinds, it.name, index);
+    }
+
+    toks := collect_tokens(content);
+    for toks {
+        if it.type != .IDENT { continue; }
+        index, found := table_find(*kinds, it.name);
+        if !found { continue; }
+        span: Ident_Span;
+        span.line       = it.l0 - 1;
+        span.col        = it.c0 - 1;
+        span.length     = cast(s32) it.name.count;
+        span.token_kind = index;
+        array_add(*spans, span);
+    }
+    return spans;
+}
+
 #scope_file
+
+semantic_kind_index :: (kind: Decl_Kind) -> s32 {
+    if kind == {
+        case .ENUM;        return 0;
+        case .STRUCT;      return 1;
+        case .ENUM_MEMBER; return 2;
+        case .PROCEDURE;   return 3;
+    }
+    return -1;
+}
 
 index_enum_members :: (path: string, toks: [] Tok, enum_keyword_index: s64, enum_name: string) {
     j := enum_keyword_index;
