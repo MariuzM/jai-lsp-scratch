@@ -87,12 +87,7 @@ index_file :: (path: string, content: string) {
 remove_decls_for_file :: (path: string) {
     push_allocator(g_heap);
     for g_decls {
-        if it.path == path {
-            free(it.name);
-            free(it.path);
-            free(it.signature);
-            remove it;
-        }
+        if it.path == path { free(it.name); free(it.path); free(it.signature); remove it; }
     }
 }
 

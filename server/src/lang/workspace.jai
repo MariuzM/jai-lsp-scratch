@@ -103,10 +103,7 @@ resolve_compiler_path :: () {
                 }
                 if dir.count == 0 { continue; }
                 candidate := tprint("%/%", dir, g_compiler);
-                if file_exists(candidate) {
-                    path = candidate;
-                    break;
-                }
+                if file_exists(candidate) { path = candidate; break; }
             }
         }
     }
@@ -194,9 +191,7 @@ find_doc :: (path: string) -> s64 {
 }
 
 visit_jai_files :: (info: *File_Visit_Info, results: *[..] string) {
-    if ends_with(info.short_name, ".jai") {
-        array_add(results, copy_string(info.full_name));
-    }
+    if ends_with(info.short_name, ".jai") { array_add(results, copy_string(info.full_name)); }
 }
 
 index_module :: (name: string) {

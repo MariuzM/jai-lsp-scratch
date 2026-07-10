@@ -2,32 +2,29 @@ handle_message :: (body: string) {
     push_allocator(temp);
 
     msg, ok := json_parse(body);
-    if !ok {
-        log_err("failed to parse message (% bytes)", body.count);
-        return;
-    }
+    if !ok { log_err("failed to parse message (% bytes)", body.count); return; }
 
     method     := json_get_string(msg, "method");
     id, has_id := json_get(msg, "id");
     params, _  := json_get_object(msg, "params");
 
     if method == {
-        case "initialize";                  handle_initialize(id, params);
-        case "initialized";                 handle_initialized();
-        case "shutdown";                    handle_shutdown(id);
-        case "exit";                        g_exit = true;
-        case "textDocument/didOpen";        handle_did_open(params);
-        case "textDocument/didChange";      handle_did_change(params);
-        case "textDocument/didSave";        run_diagnostics();
-        case "textDocument/didClose";       handle_did_close(params);
-        case "textDocument/documentSymbol"; handle_document_symbol(id, params);
-        case "textDocument/definition";     handle_definition(id, params);
-        case "textDocument/references";     handle_references(id, params);
-        case "textDocument/hover";          handle_hover(id, params);
-        case "textDocument/completion";     handle_completion(id, params);
-        case "textDocument/formatting";     handle_formatting(id, params);
+        case "initialize";                       handle_initialize(id, params);
+        case "initialized";                      handle_initialized();
+        case "shutdown";                         handle_shutdown(id);
+        case "exit";                             g_exit = true;
+        case "textDocument/didOpen";             handle_did_open(params);
+        case "textDocument/didChange";           handle_did_change(params);
+        case "textDocument/didSave";             run_diagnostics();
+        case "textDocument/didClose";            handle_did_close(params);
+        case "textDocument/documentSymbol";      handle_document_symbol(id, params);
+        case "textDocument/definition";          handle_definition(id, params);
+        case "textDocument/references";          handle_references(id, params);
+        case "textDocument/hover";               handle_hover(id, params);
+        case "textDocument/completion";          handle_completion(id, params);
+        case "textDocument/formatting";          handle_formatting(id, params);
         case "textDocument/semanticTokens/full"; handle_semantic_tokens(id, params);
-        case "workspace/symbol";            handle_workspace_symbol(id, params);
+        case "workspace/symbol";                 handle_workspace_symbol(id, params);
         case "$/setTrace";                      // ignore
         case "$/cancelRequest";                 // ignore
         case;
@@ -52,10 +49,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     options, options_ok := json_get_object(params, "initializationOptions");
     if options_ok {
         compiler := json_get_string(options, "compilerPath");
-        if compiler {
-            push_allocator(g_heap);
-            g_compiler = copy_string(compiler);
-        }
+        if compiler { push_allocator(g_heap); g_compiler = copy_string(compiler); }
     }
 
     {
@@ -65,7 +59,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.6.0\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.7.0\"}}");
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -128,10 +122,7 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
     path            := request_path(params);
     line, character := request_position(params);
     text, ok        := get_text(path);
-    if !ok || line < 0 {
-        respond(id, "null");
-        return;
-    }
+    if !ok || line < 0 { respond(id, "null"); return; }
 
     directive := directive_target(path, text, line, character);
     if directive {
@@ -141,10 +132,7 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
     }
 
     word, dotted := word_at(text, line, character);
-    if !word {
-        respond(id, "null");
-        return;
-    }
+    if !word { respond(id, "null"); return; }
 
     matches := find_decls(word);
     if dotted {
@@ -165,10 +153,7 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
     }
 
     hits := find_local_decl_sites(text, word);
-    if hits.count == 0 {
-        respond(id, "null");
-        return;
-    }
+    if hits.count == 0 { respond(id, "null"); return; }
     chosen := -1;
     for hits {
         if it.line <= cast(s32) line {
@@ -185,15 +170,9 @@ handle_references :: (id: Json_Value, params: Json_Value) {
     path            := request_path(params);
     line, character := request_position(params);
     text, ok        := get_text(path);
-    if !ok || line < 0 {
-        respond(id, "[]");
-        return;
-    }
+    if !ok || line < 0 { respond(id, "[]"); return; }
     word := word_at(text, line, character);
-    if !word {
-        respond(id, "[]");
-        return;
-    }
+    if !word { respond(id, "[]"); return; }
 
     include_declaration := true;
     ctx, ctx_ok         := json_get_object(params, "context");
@@ -220,25 +199,16 @@ handle_hover :: (id: Json_Value, params: Json_Value) {
     path            := request_path(params);
     line, character := request_position(params);
     text, ok        := get_text(path);
-    if !ok || line < 0 {
-        respond(id, "null");
-        return;
-    }
+    if !ok || line < 0 { respond(id, "null"); return; }
     word, dotted := word_at(text, line, character);
-    if !word {
-        respond(id, "null");
-        return;
-    }
+    if !word { respond(id, "null"); return; }
     matches := find_decls(word);
     if dotted {
         members: [..] Decl;
         for matches  if it.kind == .ENUM_MEMBER  array_add(*members, it);
         if members.count > 0 { matches = members; }
     }
-    if matches.count == 0 {
-        respond(id, "null");
-        return;
-    }
+    if matches.count == 0 { respond(id, "null"); return; }
     best := matches[0];
     for matches  if it.path == path  best = it;
 
@@ -262,15 +232,9 @@ handle_completion :: (id: Json_Value, params: Json_Value) {
 handle_formatting :: (id: Json_Value, params: Json_Value) {
     path     := request_path(params);
     text, ok := get_text(path);
-    if !ok {
-        respond(id, "null");
-        return;
-    }
+    if !ok { respond(id, "null"); return; }
     formatted := format_source(text);
-    if formatted == text {
-        respond(id, "[]");
-        return;
-    }
+    if formatted == text { respond(id, "[]"); return; }
     line_count := 0;
     for i: 0..text.count-1  if text[i] == #char "\n"  line_count += 1;
     respond(id, tprint(
@@ -375,20 +339,14 @@ directive_target :: (path: string, text: string, line: s64, character: s64) -> s
         q1 := -1;
         i  := key_index + key.count;
         while i < line_text.count {
-            if line_text[i] == #char "\"" {
-                q1 = i;
-                break;
-            }
+            if line_text[i] == #char "\"" { q1 = i; break; }
             i += 1;
         }
         if q1 == -1 { return ""; }
         q2 := -1;
         i = q1 + 1;
         while i < line_text.count {
-            if line_text[i] == #char "\"" {
-                q2 = i;
-                break;
-            }
+            if line_text[i] == #char "\"" { q2 = i; break; }
             i += 1;
         }
         if q2 == -1 { return ""; }
@@ -426,12 +384,7 @@ append_references_in_file :: (builder: *String_Builder, path: string, text: stri
     col   := 0;
     while i < text.count {
         c := text[i];
-        if c == #char "\n" {
-            line += 1;
-            col = 0;
-            i += 1;
-            continue;
-        }
+        if c == #char "\n" { line += 1; col = 0; i += 1; continue; }
         if is_word(c) && (i == 0 || !is_word(text[i-1])) && i + word.count <= text.count
         && slice(text, i, word.count) == word
         && (i + word.count == text.count || !is_word(text[i + word.count])) {

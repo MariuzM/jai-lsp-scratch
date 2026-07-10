@@ -53,6 +53,8 @@ format_lines :: (text: string) -> string {
         line_index += 1;
     }
 
+    lines = collapse_short_blocks(lines);
+
     align_constant_groups(lines);
     align_field_groups(lines);
     align_assignment_groups(lines);
@@ -143,10 +145,7 @@ align_constant_groups :: (lines: [] Out_Line) {
     i := 0;
     while i < lines.count {
         first := parse_const_line(lines[i]);
-        if !first.ok {
-            i += 1;
-            continue;
-        }
+        if !first.ok { i += 1; continue; }
         indent := lines[i].indent;
         j      := i + 1;
         while j < lines.count {
@@ -209,10 +208,7 @@ align_field_groups :: (lines: [] Out_Line) {
     i := 0;
     while i < lines.count {
         first := parse_field_line(lines[i]);
-        if !first.ok {
-            i += 1;
-            continue;
-        }
+        if !first.ok { i += 1; continue; }
         indent := lines[i].indent;
         j      := i + 1;
         while j < lines.count {
@@ -279,10 +275,7 @@ align_assignment_groups :: (lines: [] Out_Line) {
     i := 0;
     while i < lines.count {
         first := parse_assign_line(lines[i]);
-        if !first.ok {
-            i += 1;
-            continue;
-        }
+        if !first.ok { i += 1; continue; }
         indent := lines[i].indent;
         j      := i + 1;
         while j < lines.count {
@@ -357,10 +350,7 @@ align_decl_groups :: (lines: [] Out_Line) {
     i := 0;
     while i < lines.count {
         first := parse_decl_line(lines[i]);
-        if !first.ok {
-            i += 1;
-            continue;
-        }
+        if !first.ok { i += 1; continue; }
         indent := lines[i].indent;
         j      := i + 1;
         while j < lines.count {
@@ -405,22 +395,13 @@ parse_case_line :: (line: Out_Line) -> Const_Line {
         if t[m] == #char "\"" {
             m += 1;
             while m < t.count {
-                if t[m] == #char "\\" {
-                    m += 2;
-                    continue;
-                }
-                if t[m] == #char "\"" {
-                    m += 1;
-                    break;
-                }
+                if t[m] == #char "\\" { m += 2; continue; }
+                if t[m] == #char "\"" { m += 1; break; }
                 m += 1;
             }
             continue;
         }
-        if t[m] == #char ";" {
-            semi = m;
-            break;
-        }
+        if t[m] == #char ";" { semi = m; break; }
         m += 1;
     }
     if semi == -1 { return result; }
@@ -447,10 +428,7 @@ align_case_groups :: (lines: [] Out_Line) {
     i := 0;
     while i < lines.count {
         first := parse_case_line(lines[i]);
-        if !first.ok {
-            i += 1;
-            continue;
-        }
+        if !first.ok { i += 1; continue; }
         indent := lines[i].indent;
         j      := i + 1;
         while j < lines.count {
@@ -524,10 +502,7 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
     paren := 0;
     brace_positions: [64] s64;
     brace_bc:        [64] s64;
-    brace_count     := 0;
-    first_brace_pos := -1;
-    first_brace_bc  := 0;
-    inner_semis     := 0;
+    brace_count := 0;
 
     content := trim(s);
     is_case := is_case_line(content);
@@ -554,24 +529,14 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
 
         if c == #char "/" && k + 1 < s.count {
             if s[k+1] == #char "/" { break; }
-            if s[k+1] == #char "*" {
-                bc += 1;
-                k += 2;
-                continue;
-            }
+            if s[k+1] == #char "*" { bc += 1; k += 2; continue; }
         }
 
         if c == #char "\"" {
             k += 1;
             while k < s.count {
-                if s[k] == #char "\\" {
-                    k += 2;
-                    continue;
-                }
-                if s[k] == #char "\"" {
-                    k += 1;
-                    break;
-                }
+                if s[k] == #char "\\" { k += 2; continue; }
+                if s[k] == #char "\"" { k += 1; break; }
                 k += 1;
             }
             continue;
@@ -590,10 +555,6 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
 
         if c == {
             case #char "{";
-                if curly == 0 && first_brace_pos == -1 {
-                    first_brace_pos = k;
-                    first_brace_bc  = bc;
-                }
                 if brace_count < 64 {
                     brace_positions[brace_count] = k;
                     brace_bc[brace_count]        = bc;
@@ -620,10 +581,6 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
                 }
             }
         }
-        if c == #char ";" && curly == 1 && paren <= 0 && first_brace_pos != -1 {
-            inner_semis += 1;
-        }
-
         k += 1;
     }
 
@@ -637,29 +594,82 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
         }
     }
 
-    if bc == 0 && curly == 0 && first_brace_pos != -1 && inner_semis >= 2 {
-        prefix := slice(s, 0, first_brace_pos);
-        if !contains_word(prefix, "struct") && !contains_word(prefix, "enum") && !contains_word(prefix, "union") {
-            block_comment_depth.* = first_brace_bc;
-            return first_brace_pos + 1;
-        }
-    }
-
     block_comment_depth.* = bc;
     return -1;
 }
 
-contains_word :: (s: string, w: string) -> bool {
+COLLAPSE_WIDTH :: 100;
+
+collapse_short_blocks :: (lines: [..] Out_Line) -> [..] Out_Line {
+    result: [..] Out_Line;
     i := 0;
-    while i + w.count <= s.count {
-        if slice(s, i, w.count) == w
-        && (i == 0 || !is_word_char(s[i-1]))
-        && (i + w.count == s.count || !is_word_char(s[i + w.count])) {
-            return true;
+    while i < lines.count {
+        collapsed, consumed := try_collapse(lines, i);
+        if consumed > 0 {
+            array_add(*result, collapsed);
+            i += consumed;
+        } else {
+            array_add(*result, lines[i]);
+            i += 1;
         }
-        i += 1;
     }
-    return false;
+    return result;
+}
+
+try_collapse :: (lines: [] Out_Line, i: s64) -> Out_Line, s64 {
+    empty: Out_Line;
+    header := lines[i];
+    if header.protected { return empty, 0; }
+    c := trim(header.text);
+    if c.count < 4 { return empty, 0; }
+    if c[c.count - 1] != #char "{" { return empty, 0; }
+    if !starts_with(c, "if ") && !starts_with(c, "else ") && c != "else {" { return empty, 0; }
+    head := strip_trailing(slice(c, 0, c.count - 1));
+
+    stmts: [..] string;
+    j := i + 1;
+    while j < lines.count {
+        b := lines[j];
+        if b.protected { return empty, 0; }
+        bc := trim(b.text);
+        if bc.count == 0 { return empty, 0; }
+        if bc == "}" { break; }
+        if b.indent != header.indent + 1 { return empty, 0; }
+        if bc[bc.count - 1] != #char ";" { return empty, 0; }
+        if !simple_statement(bc) { return empty, 0; }
+        array_add(*stmts, bc);
+        j += 1;
+    }
+    if j >= lines.count || stmts.count == 0 { return empty, 0; }
+    if lines[j].indent != header.indent || lines[j].protected { return empty, 0; }
+
+    builder: String_Builder;
+    for 1..header.indent  append(*builder, "    ");
+    append(*builder, head);
+    append(*builder, " { ");
+    for stmts {
+        if it_index > 0 { append(*builder, " "); }
+        append(*builder, it);
+    }
+    append(*builder, " }");
+    text := builder_to_string(*builder);
+    if text.count > COLLAPSE_WIDTH { return empty, 0; }
+
+    out: Out_Line;
+    out.text   = text;
+    out.indent = header.indent;
+    return out, j - i + 1;
+}
+
+simple_statement :: (s: string) -> bool {
+    if is_case_line(s) { return false; }
+    if starts_with(s, "if ") || starts_with(s, "for ") || starts_with(s, "while ") || starts_with(s, "else") { return false; }
+    for i: 0..s.count-1 {
+        c := s[i];
+        if c == #char "{" || c == #char "}" { return false; }
+        if c == #char "/" && i + 1 < s.count && (s[i+1] == #char "/" || s[i+1] == #char "*") { return false; }
+    }
+    return true;
 }
 
 Chain_Kind :: enum {
@@ -711,24 +721,15 @@ parse_chain_line :: (line: Out_Line) -> Chain_Line {
             if c == #char "\"" {
                 k += 1;
                 while k < t.count {
-                    if t[k] == #char "\\" {
-                        k += 2;
-                        continue;
-                    }
-                    if t[k] == #char "\"" {
-                        k += 1;
-                        break;
-                    }
+                    if t[k] == #char "\\" { k += 2; continue; }
+                    if t[k] == #char "\"" { k += 1; break; }
                     k += 1;
                 }
                 continue;
             }
             if c == #char "(" || c == #char "[" { paren += 1; }
             if c == #char ")" || c == #char "]" { paren -= 1; }
-            if c == #char "{" && paren == 0 {
-                sep_start = k;
-                break;
-            }
+            if c == #char "{" && paren == 0 { sep_start = k; break; }
             if c == #char " " && paren == 0 && k + 1 < t.count && t[k+1] == #char " " {
                 sep_start = k;
                 break;
@@ -766,10 +767,7 @@ align_if_else_pairs :: (lines: [] Out_Line) {
     i := 0;
     while i < lines.count {
         first := parse_chain_line(lines[i]);
-        if first.kind != .IF {
-            i += 1;
-            continue;
-        }
+        if first.kind != .IF { i += 1; continue; }
         indent := lines[i].indent;
 
         j := i + 1;
@@ -807,14 +805,8 @@ brace_statement :: (stmt: string) -> string {
         if c == #char "\"" {
             k += 1;
             while k < stmt.count {
-                if stmt[k] == #char "\\" {
-                    k += 2;
-                    continue;
-                }
-                if stmt[k] == #char "\"" {
-                    k += 1;
-                    break;
-                }
+                if stmt[k] == #char "\\" { k += 2; continue; }
+                if stmt[k] == #char "\"" { k += 1; break; }
                 k += 1;
             }
             continue;
@@ -887,24 +879,14 @@ scan_line :: (s: *Format_State, line: string, line_index: s64) {
 
         if c == #char "/" && k + 1 < line.count {
             if line[k+1] == #char "/" { break; }
-            if line[k+1] == #char "*" {
-                s.block_comment_depth += 1;
-                k += 2;
-                continue;
-            }
+            if line[k+1] == #char "*" { s.block_comment_depth += 1; k += 2; continue; }
         }
 
         if c == #char "\"" {
             k += 1;
             while k < line.count {
-                if line[k] == #char "\\" {
-                    k += 2;
-                    continue;
-                }
-                if line[k] == #char "\"" {
-                    k += 1;
-                    break;
-                }
+                if line[k] == #char "\\" { k += 2; continue; }
+                if line[k] == #char "\"" { k += 1; break; }
                 k += 1;
             }
             continue;

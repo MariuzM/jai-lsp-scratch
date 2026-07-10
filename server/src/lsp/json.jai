@@ -108,20 +108,14 @@ skip_whitespace :: (p: *Json_Parser) {
 }
 
 expect :: (p: *Json_Parser, c: u8) -> bool {
-    if peek(p) != c {
-        p.failed = true;
-        return false;
-    }
+    if peek(p) != c { p.failed = true; return false; }
     p.pos += 1;
     return true;
 }
 
 parse_value :: (p: *Json_Parser, depth: int) -> Json_Value {
     result: Json_Value;
-    if depth > MAX_DEPTH {
-        p.failed = true;
-        return result;
-    }
+    if depth > MAX_DEPTH { p.failed = true; return result; }
 
     skip_whitespace(p);
     c := peek(p);
@@ -134,15 +128,9 @@ parse_value :: (p: *Json_Parser, depth: int) -> Json_Value {
             result.kind = .STRING;
             result.str  = parse_string(p);
         case #char "t";
-            if parse_literal(p, "true") {
-                result.kind    = .BOOLEAN;
-                result.boolean = true;
-            }
+            if parse_literal(p, "true") { result.kind    = .BOOLEAN; result.boolean = true; }
         case #char "f";
-            if parse_literal(p, "false") {
-                result.kind    = .BOOLEAN;
-                result.boolean = false;
-            }
+            if parse_literal(p, "false") { result.kind    = .BOOLEAN; result.boolean = false; }
         case #char "n";
             if parse_literal(p, "null") { result.kind = .NULL; }
         case;
@@ -152,14 +140,8 @@ parse_value :: (p: *Json_Parser, depth: int) -> Json_Value {
 }
 
 parse_literal :: (p: *Json_Parser, literal: string) -> bool {
-    if p.pos + literal.count > p.s.count {
-        p.failed = true;
-        return false;
-    }
-    if slice(p.s, p.pos, literal.count) != literal {
-        p.failed = true;
-        return false;
-    }
+    if p.pos + literal.count > p.s.count { p.failed = true; return false; }
+    if slice(p.s, p.pos, literal.count) != literal { p.failed = true; return false; }
     p.pos += literal.count;
     return true;
 }
@@ -169,10 +151,7 @@ parse_object :: (p: *Json_Parser, depth: int) -> Json_Value {
     result.kind = .OBJECT;
     expect(p, #char "{");
     skip_whitespace(p);
-    if peek(p) == #char "}" {
-        p.pos += 1;
-        return result;
-    }
+    if peek(p) == #char "}" { p.pos += 1; return result; }
     while !p.failed {
         skip_whitespace(p);
         member: Json_Member;
@@ -185,10 +164,7 @@ parse_object :: (p: *Json_Parser, depth: int) -> Json_Value {
         array_add(*result.members, member);
         skip_whitespace(p);
         c := peek(p);
-        if c == #char "," {
-            p.pos += 1;
-            continue;
-        }
+        if c == #char "," { p.pos += 1; continue; }
         expect(p, #char "}");
         break;
     }
@@ -200,20 +176,14 @@ parse_array :: (p: *Json_Parser, depth: int) -> Json_Value {
     result.kind = .ARRAY;
     expect(p, #char "[");
     skip_whitespace(p);
-    if peek(p) == #char "]" {
-        p.pos += 1;
-        return result;
-    }
+    if peek(p) == #char "]" { p.pos += 1; return result; }
     while !p.failed {
         element := parse_value(p, depth + 1);
         if p.failed { break; }
         array_add(*result.elements, element);
         skip_whitespace(p);
         c := peek(p);
-        if c == #char "," {
-            p.pos += 1;
-            continue;
-        }
+        if c == #char "," { p.pos += 1; continue; }
         expect(p, #char "]");
         break;
     }
@@ -225,10 +195,7 @@ parse_string :: (p: *Json_Parser) -> string {
     builder: String_Builder;
     while p.pos < p.s.count {
         c := p.s[p.pos];
-        if c == #char "\"" {
-            p.pos += 1;
-            return builder_to_string(*builder);
-        }
+        if c == #char "\"" { p.pos += 1; return builder_to_string(*builder); }
         if c == #char "\\" {
             p.pos += 1;
             if p.pos >= p.s.count { break; }
@@ -245,10 +212,7 @@ parse_string :: (p: *Json_Parser) -> string {
                 case #char "t";  append(*builder, "\t");
                 case #char "u";
                     code, ok := parse_hex4(p);
-                    if !ok {
-                        p.failed = true;
-                        return "";
-                    }
+                    if !ok { p.failed = true; return ""; }
                     if code >= 0xD800 && code <= 0xDBFF {
                         if p.pos + 1 < p.s.count && p.s[p.pos] == #char "\\" && p.s[p.pos + 1] == #char "u" {
                             p.pos += 2;
@@ -271,10 +235,7 @@ parse_string :: (p: *Json_Parser) -> string {
             }
             continue;
         }
-        if c < 0x20 {
-            p.failed = true;
-            return "";
-        }
+        if c < 0x20 { p.failed = true; return ""; }
         append(*builder, c);
         p.pos += 1;
     }
@@ -334,25 +295,16 @@ parse_number :: (p: *Json_Parser) -> Json_Value {
             break;
         }
     }
-    if digits == 0 {
-        p.failed = true;
-        return result;
-    }
+    if digits == 0 { p.failed = true; return result; }
     token := slice(p.s, start, p.pos - start);
     if is_float {
         value, ok := string_to_float64(token);
-        if !ok {
-            p.failed = true;
-            return result;
-        }
+        if !ok { p.failed = true; return result; }
         result.kind   = .FLOAT;
         result.number = value;
     } else {
         value, ok, remainder := string_to_int(token, 10, s64);
-        if !ok || remainder.count > 0 {
-            p.failed = true;
-            return result;
-        }
+        if !ok || remainder.count > 0 { p.failed = true; return result; }
         result.kind    = .INTEGER;
         result.integer = value;
     }

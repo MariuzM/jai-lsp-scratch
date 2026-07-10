@@ -4,10 +4,7 @@ read_message :: () -> string, bool {
         if header_end != -1 {
             header         := to_view(0, header_end);
             content_length := parse_content_length(header);
-            if content_length < 0 {
-                log_err("bad header, no Content-Length");
-                return "", false;
-            }
+            if content_length < 0 { log_err("bad header, no Content-Length"); return "", false; }
             total := header_end + 4 + content_length;
             while read_buffer.count < total {
                 if !read_more() { return "", false; }
