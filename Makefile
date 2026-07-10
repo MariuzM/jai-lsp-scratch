@@ -7,7 +7,7 @@ build:
 	cd server && jai build.jai
 
 dev:
-	watchexec -r -c -w server -e jai -- make build
+	watchexec -r -c -w server/src -w server/build.jai -e jai -- make build
 
 bundle: build
 	mkdir -p extension/bin

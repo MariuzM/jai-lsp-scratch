@@ -10,5 +10,5 @@
     options.output_path = "build";
     options.intermediate_path = "build/.build";
     set_build_options(options, w);
-    add_build_file("main.jai", w);
+    add_build_file("src/main.jai", w);
 }
