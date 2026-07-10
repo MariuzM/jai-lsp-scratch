@@ -8,13 +8,15 @@ Posix :: #import "POSIX";
 
 g_heap: Allocator;
 g_root: string;
+
 g_compiler := "jai";
 g_shutdown := false;
-g_exit := false;
+g_exit     := false;
 
 main :: () {
-    g_heap = context.allocator;
+    g_heap         = context.allocator;
     context.logger = stderr_logger;
+
     log_err("jai-lsp-scratch starting");
 
     while !g_exit {

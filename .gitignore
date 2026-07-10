@@ -1,6 +1,5 @@
 .build/
-server/jai-lsp-scratch
-server/*.dSYM/
+server/build/
 extension/bin/
 extension/node_modules/
 extension/*.vsix

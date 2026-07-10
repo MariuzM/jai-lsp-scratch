@@ -3,8 +3,8 @@ Doc :: struct {
     text: string;
 }
 
-g_docs: [..] Doc;
-g_files: [..] string;
+g_docs:            [..] Doc;
+g_files:           [..] string;
 g_indexed_modules: [..] string;
 
 get_text :: (path: string) -> string, bool {
@@ -43,7 +43,7 @@ scan_workspace :: () {
     count := 0;
     for filenames {
         found_build, _ := contains(it, "/.build/");
-        found_out, _ := contains(it, "/build/");
+        found_out, _   := contains(it, "/build/");
         if found_build || found_out  continue;
         content, ok := read_entire_file(it);
         if !ok  continue;
@@ -93,12 +93,12 @@ resolve_compiler_path :: () {
         if env {
             remaining := to_string(env);
             while remaining.count > 0 {
-                dir := remaining;
+                dir   := remaining;
                 colon := find_index_from_left(remaining, #char ":");
                 if colon == -1 {
                     remaining = "";
                 } else {
-                    dir = slice(remaining, 0, colon);
+                    dir       = slice(remaining, 0, colon);
                     remaining = slice(remaining, colon + 1, remaining.count - colon - 1);
                 }
                 if dir.count == 0  continue;
@@ -116,7 +116,7 @@ resolve_compiler_path :: () {
         n := Posix.readlink(temp_c_string(path), buffer.data, 4096);
         if n <= 0  break;
         link: string;
-        link.data = buffer.data;
+        link.data  = buffer.data;
         link.count = n;
         if link[0] == #char "/"  path = tprint("%", link);
         else                     path = tprint("%/%", dir_of(path), link);
@@ -138,7 +138,7 @@ uri_to_path :: (uri: string) -> string {
         c := s[i];
         if c == #char "%" && i + 2 < s.count {
             high := hex_digit(s[i+1]);
-            low := hex_digit(s[i+2]);
+            low  := hex_digit(s[i+2]);
             if high >= 0 && low >= 0 {
                 append(*builder, cast(u8)(high * 16 + low));
                 i += 3;
@@ -169,7 +169,7 @@ display_path :: (path: string) -> string {
         return relative;
     }
     marker := "/modules/";
-    index := find_index_from_left(path, marker);
+    index  := find_index_from_left(path, marker);
     if index != -1 {
         rest := slice(path, index + marker.count, path.count - index - marker.count);
         return tprint("Jai/%", rest);
@@ -207,14 +207,14 @@ index_module :: (name: string) {
         array_add(*g_indexed_modules, copy_string(name));
     }
 
-    base := modules_root();
+    base   := modules_root();
     single := tprint("%/%.jai", base, name);
     if file_exists(single) {
         index_module_file(single);
         log_err("indexed module % (single file)", name);
         return;
     }
-    dir := tprint("%/%", base, name);
+    dir         := tprint("%/%", base, name);
     module_main := tprint("%/module.jai", dir);
     if !file_exists(module_main)  return;
     filenames: [..] string;

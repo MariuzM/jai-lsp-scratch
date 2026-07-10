@@ -4,7 +4,7 @@ format_source :: (text: string) -> string {
     s: Format_State;
     array_add(*s.case_stack, false);
 
-    i := 0;
+    i          := 0;
     line_index := 0;
     while i < text.count {
         j := i;
@@ -13,11 +13,11 @@ format_source :: (text: string) -> string {
 
         out: Out_Line;
         if s.here_terminator.count > 0 {
-            out.text = line;
+            out.text      = line;
             out.protected = true;
             if trim(line) == s.here_terminator  s.here_terminator = "";
         } else if s.block_comment_depth > 0 {
-            out.text = strip_trailing(line);
+            out.text      = strip_trailing(line);
             out.protected = true;
             scan_line(*s, line, line_index);
         } else {
@@ -35,7 +35,7 @@ format_source :: (text: string) -> string {
                 }
                 level += extra;
                 if level < 0  level = 0;
-                out.text = make_line(level, content);
+                out.text   = make_line(level, content);
                 out.indent = level;
             }
             scan_line(*s, line, line_index);
@@ -56,10 +56,10 @@ format_source :: (text: string) -> string {
     while last >= 0 && !lines[last].protected && lines[last].text.count == 0  last -= 1;
 
     builder: String_Builder;
-    prev_blank := false;
+    prev_blank  := false;
     emitted_any := false;
     for k: 0..last {
-        it := lines[k];
+        it       := lines[k];
         is_blank := !it.protected && it.text.count == 0;
         if is_blank {
             if !emitted_any  continue;
@@ -77,8 +77,8 @@ format_source :: (text: string) -> string {
 #scope_file
 
 Out_Line :: struct {
-    text: string;
-    indent: s64;
+    text:      string;
+    indent:    s64;
     protected: bool;
 }
 
@@ -90,7 +90,7 @@ make_line :: (level: s64, content: string) -> string {
 }
 
 Const_Line :: struct {
-    ok: bool;
+    ok:   bool;
     name: string;
     rest: string;
 }
@@ -125,7 +125,7 @@ parse_const_line :: (line: Out_Line) -> Const_Line {
     found_semicolon, _ := contains(rest, #char ";");
     if !found_semicolon  return result;
 
-    result.ok = true;
+    result.ok   = true;
     result.name = name;
     result.rest = rest;
     return result;
@@ -140,7 +140,7 @@ align_constant_groups :: (lines: [] Out_Line) {
             continue;
         }
         indent := lines[i].indent;
-        j := i + 1;
+        j      := i + 1;
         while j < lines.count {
             next := parse_const_line(lines[j]);
             if !next.ok || lines[j].indent != indent  break;
@@ -191,7 +191,7 @@ parse_field_line :: (line: Out_Line) -> Const_Line {
     found_semicolon, _ := contains(rest, #char ";");
     if !found_semicolon  return result;
 
-    result.ok = true;
+    result.ok   = true;
     result.name = name;
     result.rest = rest;
     return result;
@@ -206,7 +206,7 @@ align_field_groups :: (lines: [] Out_Line) {
             continue;
         }
         indent := lines[i].indent;
-        j := i + 1;
+        j      := i + 1;
         while j < lines.count {
             next := parse_field_line(lines[j]);
             if !next.ok || lines[j].indent != indent  break;
@@ -258,7 +258,7 @@ parse_assign_line :: (line: Out_Line) -> Const_Line {
     found_semicolon, _ := contains(rest, #char ";");
     if !found_semicolon  return result;
 
-    result.ok = true;
+    result.ok   = true;
     result.name = name;
     result.rest = rest;
     return result;
@@ -273,7 +273,7 @@ align_assignment_groups :: (lines: [] Out_Line) {
             continue;
         }
         indent := lines[i].indent;
-        j := i + 1;
+        j      := i + 1;
         while j < lines.count {
             next := parse_assign_line(lines[j]);
             if !next.ok || lines[j].indent != indent  break;
@@ -322,7 +322,7 @@ parse_decl_line :: (line: Out_Line) -> Const_Line {
         ident_start := m;
         while m < t.count && is_word_char(t[m])  m += 1;
         if m == ident_start  return result;
-        k = m;
+        k        = m;
         name_end = m;
     }
     name := slice(t, start, name_end - start);
@@ -336,7 +336,7 @@ parse_decl_line :: (line: Out_Line) -> Const_Line {
     found_semicolon, _ := contains(rest, #char ";");
     if !found_semicolon  return result;
 
-    result.ok = true;
+    result.ok   = true;
     result.name = name;
     result.rest = rest;
     return result;
@@ -351,7 +351,7 @@ align_decl_groups :: (lines: [] Out_Line) {
             continue;
         }
         indent := lines[i].indent;
-        j := i + 1;
+        j      := i + 1;
         while j < lines.count {
             next := parse_decl_line(lines[j]);
             if !next.ok || lines[j].indent != indent  break;
@@ -389,7 +389,7 @@ parse_case_line :: (line: Out_Line) -> Const_Line {
     if after != #char " " && after != #char ";"  return result;
 
     semi := -1;
-    m := k;
+    m    := k;
     while m < t.count {
         if t[m] == #char "\"" {
             m += 1;
@@ -414,7 +414,7 @@ parse_case_line :: (line: Out_Line) -> Const_Line {
     if body.count == 0  return result;
     if starts_with(body, "//")  return result;
 
-    result.ok = true;
+    result.ok   = true;
     result.name = prefix;
     result.rest = body;
     return result;
@@ -429,7 +429,7 @@ align_case_groups :: (lines: [] Out_Line) {
             continue;
         }
         indent := lines[i].indent;
-        j := i + 1;
+        j      := i + 1;
         while j < lines.count {
             next := parse_case_line(lines[j]);
             if !next.ok || lines[j].indent != indent  break;
@@ -456,22 +456,22 @@ align_case_groups :: (lines: [] Out_Line) {
 }
 
 Format_State :: struct {
-    curly: s64;
-    pb_indent: s64;
-    pb_stack: [..] Pb_Entry;
+    curly:               s64;
+    pb_indent:           s64;
+    pb_stack:            [..] Pb_Entry;
     block_comment_depth: s64;
-    here_terminator: string;
-    case_stack: [..] bool;
+    here_terminator:     string;
+    case_stack:          [..] bool;
 }
 
 Pb_Entry :: struct {
-    line: s64;
+    line:   s64;
     counts: bool;
 }
 
 is_word_char :: (c: u8) -> bool {
     return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z")
-        || (c >= #char "0" && c <= #char "9") || c == #char "_";
+    || (c >= #char "0" && c <= #char "9") || c == #char "_";
 }
 
 is_case_line :: (content: string) -> bool {
@@ -488,7 +488,7 @@ strip_trailing :: (line: string) -> string {
 }
 
 scan_line :: (s: *Format_State, line: string, line_index: s64) {
-    content := trim(line);
+    content  := trim(line);
     saw_case := s.block_comment_depth == 0 && is_case_line(content);
 
     k := 0;
@@ -530,7 +530,7 @@ scan_line :: (s: *Format_State, line: string, line_index: s64) {
         }
 
         if c == #char "#" && k + 7 <= line.count && slice(line, k + 1, 6) == "string"
-           && (k + 7 == line.count || !is_word_char(line[k+7])) {
+        && (k + 7 == line.count || !is_word_char(line[k+7])) {
             m := k + 7;
             while m < line.count && (line[m] == #char " " || line[m] == #char "\t")  m += 1;
             start := m;
@@ -550,7 +550,7 @@ scan_line :: (s: *Format_State, line: string, line_index: s64) {
             case #char "[";
                 counts := s.pb_stack.count == 0 || s.pb_stack[s.pb_stack.count - 1].line != line_index;
                 entry: Pb_Entry;
-                entry.line = line_index;
+                entry.line   = line_index;
                 entry.counts = counts;
                 array_add(*s.pb_stack, entry);
                 if counts  s.pb_indent += 1;

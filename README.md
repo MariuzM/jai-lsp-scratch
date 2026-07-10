@@ -144,16 +144,21 @@ resolve, set:
 
 ## Building from source
 
-Requires a Jai compiler (closed beta).
+Requires a Jai compiler (closed beta) on PATH, plus `node`/`npm` for packaging (and `watchexec` for `make dev`). First time: `cd extension && npm install`.
 
 ```
-cd server
-jai main.jai -exe jai-lsp-scratch
-cp jai-lsp-scratch ../extension/bin/jai-lsp-scratch-<platform>-<arch>
-cd ../extension
-npm install
-npx @vscode/vsce package
+make build      # compile the server -> server/build/jai-lsp-scratch
+make dev        # rebuild on every change under server/ (watchexec)
+make bundle     # build + copy the binary into extension/bin/
+make package    # bundle + produce the .vsix
+make install    # package + install the .vsix into VS Code
+make release    # package + create/refresh the GitHub release for the current version
+make clean      # remove build artifacts and .vsix files
 ```
+
+All build artifacts (executable, dSYM, intermediates) go to `server/build/` — `server/build.jai` is a metaprogram that sets `output_path` and `intermediate_path`.
+
+Dev loop: set `jaiLspScratch.serverPath` to `<repo>/server/build/jai-lsp-scratch`, run `make dev`, and reload the VS Code window after each rebuild — no reinstall needed. Clear the setting to go back to the bundled binary.
 
 ## Credits
 

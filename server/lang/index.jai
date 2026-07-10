@@ -8,12 +8,12 @@ Decl_Kind :: enum {
 }
 
 Decl :: struct {
-    name: string;
-    path: string;
-    line: s32;
-    col: s32;
-    name_end: s32;
-    kind: Decl_Kind;
+    name:      string;
+    path:      string;
+    line:      s32;
+    col:       s32;
+    name_end:  s32;
+    kind:      Decl_Kind;
     signature: string;
 }
 
@@ -25,12 +25,12 @@ index_file :: (path: string, content: string) {
     toks := collect_tokens(content);
 
     curly_stack: [..] bool;
-    opaque_depth := 0;
-    pending_transparent := false;
+    opaque_depth            := 0;
+    pending_transparent     := false;
     last_closed_transparent := false;
-    paren := 0;
-    bracket := 0;
-    i := 0;
+    paren                   := 0;
+    bracket                 := 0;
+    i                       := 0;
     while i < toks.count {
         t := toks[i];
         if t.type == {
@@ -53,15 +53,15 @@ index_file :: (path: string, content: string) {
                     if !last_closed_transparent  opaque_depth -= 1;
                     curly_stack.count -= 1;
                 }
-            case cast(Token_Type) #char "(";  paren += 1;
-            case cast(Token_Type) #char ")";  paren -= 1;
-            case cast(Token_Type) #char "[";  bracket += 1;
-            case .BEGIN_ARRAY_LITERAL;        bracket += 1;
-            case cast(Token_Type) #char "]";  bracket -= 1;
+            case cast(Token_Type) #char "("; paren += 1;
+            case cast(Token_Type) #char ")"; paren -= 1;
+            case cast(Token_Type) #char "["; bracket += 1;
+            case .BEGIN_ARRAY_LITERAL;       bracket += 1;
+            case cast(Token_Type) #char "]"; bracket -= 1;
         }
 
         if opaque_depth == 0 && paren == 0 && bracket == 0 && t.type == .IDENT && i + 1 < toks.count
-           && toks[i+1].type == cast(Token_Type) #char ":" {
+        && toks[i+1].type == cast(Token_Type) #char ":" {
             prev_is_dot := i > 0 && toks[i-1].type == cast(Token_Type) #char ".";
             if !prev_is_dot {
                 if i + 2 < toks.count && toks[i+2].type == cast(Token_Type) #char ":" {
@@ -109,8 +109,8 @@ decls_in_file :: (path: string) -> [..] Decl {
 }
 
 Local_Hit :: struct {
-    line: s32;
-    col: s32;
+    line:     s32;
+    col:      s32;
     name_end: s32;
 }
 
@@ -124,8 +124,8 @@ find_local_decl_sites :: (content: string, name: string) -> [..] Local_Hit {
         if i + 1 >= toks.count || toks[i+1].type != cast(Token_Type) #char ":"  continue;
         if i > 0 && toks[i-1].type == cast(Token_Type) #char "."  continue;
         hit: Local_Hit;
-        hit.line = t.l0 - 1;
-        hit.col = t.c0 - 1;
+        hit.line     = t.l0 - 1;
+        hit.col      = t.c0 - 1;
         hit.name_end = t.c0 - 1 + cast(s32) name.count;
         array_add(*hits, hit);
     }
@@ -133,7 +133,7 @@ find_local_decl_sites :: (content: string, name: string) -> [..] Local_Hit {
 }
 
 get_line :: (content: string, line0: s64) -> string {
-    start := 0;
+    start   := 0;
     current := 0;
     for i: 0..content.count-1 {
         if current == line0 {
@@ -160,25 +160,25 @@ index_enum_members :: (path: string, toks: [] Tok, enum_keyword_index: s64, enum
     if j >= toks.count  return;
 
     depth := 1;
-    prev := cast(Token_Type) #char "{";
+    prev  := cast(Token_Type) #char "{";
     j += 1;
     while j < toks.count && depth > 0 {
         t := toks[j];
         if t.type == {
-            case cast(Token_Type) #char "{";  depth += 1;
-            case .BEGIN_STRUCT_LITERAL;       depth += 1;
-            case cast(Token_Type) #char "}";  depth -= 1;
+            case cast(Token_Type) #char "{"; depth += 1;
+            case .BEGIN_STRUCT_LITERAL;      depth += 1;
+            case cast(Token_Type) #char "}"; depth -= 1;
         }
         if depth == 1 && t.type == .IDENT
-           && (prev == cast(Token_Type) #char "{" || prev == cast(Token_Type) #char ";") {
+        && (prev == cast(Token_Type) #char "{" || prev == cast(Token_Type) #char ";") {
             push_allocator(g_heap);
             decl: Decl;
-            decl.name = copy_string(t.name);
-            decl.path = copy_string(path);
-            decl.line = t.l0 - 1;
-            decl.col = t.c0 - 1;
-            decl.name_end = t.c0 - 1 + cast(s32) t.name.count;
-            decl.kind = .ENUM_MEMBER;
+            decl.name      = copy_string(t.name);
+            decl.path      = copy_string(path);
+            decl.line      = t.l0 - 1;
+            decl.col       = t.c0 - 1;
+            decl.name_end  = t.c0 - 1 + cast(s32) t.name.count;
+            decl.kind      = .ENUM_MEMBER;
             decl.signature = sprint("%.%", enum_name, t.name);
             array_add(*g_decls, decl);
         }
@@ -194,7 +194,7 @@ Tok :: struct {
 }
 
 collect_tokens :: (content: string) -> [..] Tok {
-    toks: [..] Tok;
+    toks:  [..] Tok;
     lexer: Lexer;
     set_input_from_string(*lexer, content);
     while 1 {
@@ -202,9 +202,9 @@ collect_tokens :: (content: string) -> [..] Tok {
         if token.type == .END_OF_INPUT  break;
         tok: Tok;
         tok.type = token.type;
-        tok.l0 = token.l0;
-        tok.c0 = token.c0;
-        tok.c1 = token.c1;
+        tok.l0   = token.l0;
+        tok.c0   = token.c0;
+        tok.c1   = token.c1;
         if token.type == .IDENT  tok.name = copy_string(token.ident_value.name);
         array_add(*toks, tok);
         eat_token(*lexer);
@@ -215,16 +215,16 @@ collect_tokens :: (content: string) -> [..] Tok {
 
 add_decl :: (path: string, content: string, t: Tok, kind: Decl_Kind) {
     line0 := t.l0 - 1;
-    sig := trim(get_line(content, line0));
+    sig   := trim(get_line(content, line0));
 
     push_allocator(g_heap);
     decl: Decl;
-    decl.name = copy_string(t.name);
-    decl.path = copy_string(path);
-    decl.line = cast(s32) line0;
-    decl.col = t.c0 - 1;
-    decl.name_end = t.c0 - 1 + cast(s32) t.name.count;
-    decl.kind = kind;
+    decl.name      = copy_string(t.name);
+    decl.path      = copy_string(path);
+    decl.line      = cast(s32) line0;
+    decl.col       = t.c0 - 1;
+    decl.name_end  = t.c0 - 1 + cast(s32) t.name.count;
+    decl.kind      = kind;
     decl.signature = copy_string(sig);
     array_add(*g_decls, decl);
 }
