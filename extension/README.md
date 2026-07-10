@@ -104,21 +104,23 @@ if cond { a += 1; }
 b += 1;
 ```
 
-Short `if` / `else` bodies collapse onto one line when the result is simple and fits 100 columns:
+Your line-break choice is preserved: blocks written inline stay inline, blocks broken after `{`
+become proper multi-line blocks with one statement per line:
 
 ```jai
-// before
-if cond {
-    a += 1;
-    b += 1;
-}
-
-// after
+// written inline -> stays inline (spacing normalized)
 if cond { a += 1; b += 1; }
-```
 
-Bodies stay multi-line when the collapsed form would exceed 100 characters, or when they contain
-nested blocks, control flow, comments, or blank lines.
+// written broken -> normalized to a full block
+if x > 5 {
+    y += 1; z += 1; }
+
+// becomes
+if x > 5 {
+    y += 1;
+    z += 1;
+}
+```
 
 `if` / `else if` / `else` chains align their blocks after the longest condition:
 
@@ -171,9 +173,9 @@ age, has_age := json_get(root, "age");
   disambiguates traps like `if cond  a; b;` where `b;` runs unconditionally
 - Single-line `if` / `else if` / `else` bodies are wrapped in braces: `if cond  stmt;` becomes
   `if cond { stmt; }` so the body is visually delimited
-- Short `if` / `else` bodies collapse to one line (`if cond { a += 1; b += 1; }`) when the result
-  fits 100 columns and the body is simple statements only — no nested blocks, control flow, or
-  comments; longer or complex bodies stay multi-line
+- The author's line-break choice is preserved: one-liner `{ ... }` blocks stay inline (spacing
+  normalized), and blocks broken after `{` are laid out as full multi-line blocks — one statement
+  per line, closing `}` on its own line
 
 **Global whitespace cleanup**
 
