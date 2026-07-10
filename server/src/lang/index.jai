@@ -93,13 +93,13 @@ remove_decls_for_file :: (path: string) {
 
 find_decls :: (name: string) -> [..] Decl {
     results: [..] Decl;
-    for g_decls  if it.name == name  array_add(*results, it);
+    for g_decls if it.name == name array_add(*results, it);
     return results;
 }
 
 decls_in_file :: (path: string) -> [..] Decl {
     results: [..] Decl;
-    for g_decls  if it.path == path  array_add(*results, it);
+    for g_decls if it.path == path array_add(*results, it);
     return results;
 }
 
@@ -134,7 +134,7 @@ get_line :: (content: string, line0: s64) -> string {
         if current == line0 {
             start = i;
             end := i;
-            while end < content.count && content[end] != #char "\n"  end += 1;
+            while end < content.count && content[end] != #char "\n" { end += 1; }
             return slice(content, start, end - start);
         }
         if content[i] == #char "\n" { current += 1; }

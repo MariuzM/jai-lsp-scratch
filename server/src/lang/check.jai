@@ -25,7 +25,7 @@ run_diagnostics :: () {
     published: [..] string;
     for diags {
         already := false;
-        for p: published  if p == it.path  already = true;
+        for p: published if p == it.path already = true;
         if already { continue; }
         array_add(*published, it.path);
         publish_for_path(it.path, diags);
@@ -33,15 +33,15 @@ run_diagnostics :: () {
 
     for old: g_last_diag_paths {
         still := false;
-        for p: published  if p == old  still = true;
+        for p: published if p == old still = true;
         if !still { publish_for_path(old, .[]); }
     }
 
     {
         push_allocator(g_heap);
-        for g_last_diag_paths  free(it);
+        for g_last_diag_paths { free(it); }
         array_reset(*g_last_diag_paths);
-        for published  array_add(*g_last_diag_paths, copy_string(it));
+        for published { array_add(*g_last_diag_paths, copy_string(it)); }
     }
 }
 

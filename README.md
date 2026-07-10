@@ -175,6 +175,17 @@ age, has_age := json_get(root, "age");
   fits 100 columns and the body is simple statements only — no nested blocks, control flow, or
   comments; longer or complex bodies stay multi-line
 
+**Global whitespace cleanup**
+
+- Runs of extra spaces anywhere in code collapse to a single space (`x   :=  f(a,    b);`
+  becomes `x := f(a, b);`) — string contents, comment text, and here-strings are untouched
+- Trailing `//` comments get exactly two spaces before them
+- Cleanup runs first; the alignment rules below then re-create every deliberate column, so stale
+  hand-padding disappears while intentional alignment is rebuilt
+- Single-line `while` / `for` bodies are braced like `if` bodies (`while x > 0  step();` becomes
+  `while x > 0 { step(); }`); when sloppy spacing makes the condition/body boundary ambiguous, the
+  line is only cleaned, never restructured
+
 **Indentation & whitespace**
 
 - 4-space indentation from brace/paren/bracket depth; tabs in leading whitespace are replaced

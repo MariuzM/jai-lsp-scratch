@@ -25,8 +25,8 @@ handle_message :: (body: string) {
         case "textDocument/formatting";          handle_formatting(id, params);
         case "textDocument/semanticTokens/full"; handle_semantic_tokens(id, params);
         case "workspace/symbol";                 handle_workspace_symbol(id, params);
-        case "$/setTrace";                      // ignore
-        case "$/cancelRequest";                 // ignore
+        case "$/setTrace";  // ignore
+        case "$/cancelRequest";  // ignore
         case;
             if has_id { respond_error(id, -32601, tprint("method not found: %", method)); }
     }
@@ -59,7 +59,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.7.0\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.8.0\"}}");
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -137,7 +137,7 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
     matches := find_decls(word);
     if dotted {
         members: [..] Decl;
-        for matches  if it.kind == .ENUM_MEMBER  array_add(*members, it);
+        for matches if it.kind == .ENUM_MEMBER array_add(*members, it);
         if members.count > 0 { matches = members; }
     }
     if matches.count > 0 {
@@ -205,12 +205,12 @@ handle_hover :: (id: Json_Value, params: Json_Value) {
     matches := find_decls(word);
     if dotted {
         members: [..] Decl;
-        for matches  if it.kind == .ENUM_MEMBER  array_add(*members, it);
+        for matches if it.kind == .ENUM_MEMBER array_add(*members, it);
         if members.count > 0 { matches = members; }
     }
     if matches.count == 0 { respond(id, "null"); return; }
     best := matches[0];
-    for matches  if it.path == path  best = it;
+    for matches if it.path == path best = it;
 
     relative := display_path(best.path);
     value    := tprint("```jai\n%\n```\n\n%:%", best.signature, relative, best.line + 1);
@@ -236,7 +236,7 @@ handle_formatting :: (id: Json_Value, params: Json_Value) {
     formatted := format_source(text);
     if formatted == text { respond(id, "[]"); return; }
     line_count := 0;
-    for i: 0..text.count-1  if text[i] == #char "\n"  line_count += 1;
+    for i: 0..text.count-1 if text[i] == #char "\n" line_count += 1;
     respond(id, tprint(
         "[{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":%,\"character\":0}},\"newText\":\"%\"}]",
         line_count + 1, json_escape(formatted)));
@@ -321,9 +321,9 @@ word_at :: (text: string, line: s64, character: s64) -> string, bool {
     }
 
     start := position;
-    while start > offset && is_word(text[start - 1])  start -= 1;
+    while start > offset && is_word(text[start - 1]) { start -= 1; }
     end := position;
-    while end < text.count && text[end] != #char "\n" && is_word(text[end])  end += 1;
+    while end < text.count && text[end] != #char "\n" && is_word(text[end]) { end += 1; }
     if end <= start { return "", false; }
     dotted := start > 0 && text[start - 1] == #char ".";
     if dotted && start > 1 && is_word(text[start - 2]) { dotted = false; }

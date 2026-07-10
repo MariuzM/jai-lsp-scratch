@@ -58,7 +58,7 @@ scan_workspace :: () {
 
 add_workspace_file :: (path: string) {
     if !ends_with(path, ".jai") { return; }
-    for g_files  if it == path  return;
+    for g_files if it == path return;
     push_allocator(g_heap);
     array_add(*g_files, copy_string(path));
 }
@@ -70,11 +70,11 @@ index_imported_modules :: (content: string) {
         if index == -1 { break; }
         remaining = slice(remaining, index + 7, remaining.count - index - 7);
         k := 0;
-        while k < remaining.count && remaining[k] == #char " "  k += 1;
+        while k < remaining.count && remaining[k] == #char " " { k += 1; }
         if k >= remaining.count || remaining[k] != #char "\"" { continue; }
         k += 1;
         start := k;
-        while k < remaining.count && remaining[k] != #char "\"" && remaining[k] != #char "\n"  k += 1;
+        while k < remaining.count && remaining[k] != #char "\"" && remaining[k] != #char "\n" { k += 1; }
         if k >= remaining.count || remaining[k] != #char "\"" { continue; }
         index_module(slice(remaining, start, k - start));
     }
@@ -186,7 +186,7 @@ dir_of :: (path: string) -> string {
 #scope_file
 
 find_doc :: (path: string) -> s64 {
-    for g_docs  if it.path == path  return it_index;
+    for g_docs if it.path == path return it_index;
     return -1;
 }
 
@@ -196,7 +196,7 @@ visit_jai_files :: (info: *File_Visit_Info, results: *[..] string) {
 
 index_module :: (name: string) {
     if name.count == 0 { return; }
-    for g_indexed_modules  if it == name  return;
+    for g_indexed_modules if it == name return;
     {
         push_allocator(g_heap);
         array_add(*g_indexed_modules, copy_string(name));

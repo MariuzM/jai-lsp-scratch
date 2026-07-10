@@ -33,7 +33,7 @@ json_parse :: (s: string) -> Json_Value, bool {
 }
 
 json_get :: (v: Json_Value, key: string) -> Json_Value, bool {
-    for v.members  if it.key == key  return it.value, true;
+    for v.members if it.key == key return it.value, true;
     return .{}, false;
 }
 
@@ -128,9 +128,9 @@ parse_value :: (p: *Json_Parser, depth: int) -> Json_Value {
             result.kind = .STRING;
             result.str  = parse_string(p);
         case #char "t";
-            if parse_literal(p, "true") { result.kind    = .BOOLEAN; result.boolean = true; }
+            if parse_literal(p, "true") { result.kind = .BOOLEAN; result.boolean = true; }
         case #char "f";
-            if parse_literal(p, "false") { result.kind    = .BOOLEAN; result.boolean = false; }
+            if parse_literal(p, "false") { result.kind = .BOOLEAN; result.boolean = false; }
         case #char "n";
             if parse_literal(p, "null") { result.kind = .NULL; }
         case;
