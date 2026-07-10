@@ -86,18 +86,33 @@ handle :: (res: *Response, v: Json_Value) {
 
 ### More examples
 
-Inline `if` / `else if` / `else` chains — statements align two spaces after the longest condition:
+Single-line `if` bodies get braces so the body is visually delimited:
+
+```jai
+// before
+if !last_closed_transparent  opaque_depth -= 1;
+if !ok  return;
+if cond  a += 1; b += 1;    // trap: b += 1 runs unconditionally!
+
+// after
+if !last_closed_transparent { opaque_depth -= 1; }
+if !ok { return; }
+if cond { a += 1; }
+b += 1;
+```
+
+`if` / `else if` / `else` chains align their blocks after the longest condition:
 
 ```jai
 parse_digit :: (c: u8) -> s32 {
-    if c >= #char "0" && c <= #char "9"       return c - #char "0";
-    else if c >= #char "a" && c <= #char "f"  return c - #char "a" + 10;
-    else                                      return -1;
+    if c >= #char "0" && c <= #char "9"      { return c - #char "0"; }
+    else if c >= #char "a" && c <= #char "f" { return c - #char "a" + 10; }
+    else                                     { return -1; }
 }
 
 resolve :: (link: string, path: string) -> string {
-    if link[0] == #char "/"  result = copy_string(link);
-    else                     result = tprint("%/%", dir_of(path), link);
+    if link[0] == #char "/" { result = copy_string(link); }
+    else                    { result = tprint("%/%", dir_of(path), link); }
     return result;
 }
 ```
@@ -132,11 +147,13 @@ age, has_age := json_get(root, "age");
 
 **Statement layout**
 
-- One statement per line: code after an opening `{` moves to the next line (when the block
-  spans multiple lines), and multiple `;`-terminated statements on one line are split apart —
-  this also disambiguates traps like `if cond  a; b;` where `b;` runs unconditionally
-- Idiomatic single-line forms are kept: `if x { y(); }` one-liners that close on the same line,
-  inline `case .X; stmt;` bodies, and `if cond  stmt;`
+- One statement per line: code after an opening `{` moves to the next line (when the block spans
+  multiple lines), and multiple `;`-terminated statements on one line are split apart — this also
+  disambiguates traps like `if cond  a; b;` where `b;` runs unconditionally
+- Single-line `if` / `else if` / `else` bodies are wrapped in braces: `if cond  stmt;` becomes
+  `if cond { stmt; }` so the body is visually delimited
+- Other idiomatic single-line forms are kept: `if x { y(); }` one-liners that close on the same
+  line, and inline `case .X; stmt;` bodies
 
 **Indentation & whitespace**
 
@@ -157,8 +174,8 @@ padded to the longest name + 1):
 - Assignments: `lvalue = expr;`
 - Variable declarations: `name := value;`, including multi-return `value, ok := ...`
 - Inline `case` bodies: `case .X;  statement;`
-- Inline `if` / `else if` / `else` chains: statements align two spaces after the longest
-  condition — `if cond  stmt;` with the `else` branch padded to the same column
+- Single-line `if` / `else if` / `else` chains: braced bodies align one space after the longest
+  condition, with `else` branches padded to the same column
 
 A blank line (or any non-matching line) separates groups — use one to keep two neighbors from
 aligning together.

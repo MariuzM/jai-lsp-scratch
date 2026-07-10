@@ -30,7 +30,7 @@ handle_message :: (body: string) {
         case "$/setTrace";                      // ignore
         case "$/cancelRequest";                 // ignore
         case;
-            if has_id  respond_error(id, -32601, tprint("method not found: %", method));
+            if has_id { respond_error(id, -32601, tprint("method not found: %", method)); }
     }
 }
 
@@ -39,14 +39,14 @@ handle_message :: (body: string) {
 handle_initialize :: (id: Json_Value, params: Json_Value) {
     root     := "";
     root_uri := json_get_string(params, "rootUri");
-    if root_uri  root = uri_to_path(root_uri);
+    if root_uri { root = uri_to_path(root_uri); }
     if !root {
         folders, folders_ok := json_get(params, "workspaceFolders");
         if folders_ok && folders.kind == .ARRAY && folders.elements.count > 0 {
             root = uri_to_path(json_get_string(folders.elements[0], "uri"));
         }
     }
-    if !root  root = json_get_string(params, "rootPath");
+    if !root { root = json_get_string(params, "rootPath"); }
 
     options, options_ok := json_get_object(params, "initializationOptions");
     if options_ok {
@@ -64,7 +64,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.3.0\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.4.0\"}}");
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -73,14 +73,14 @@ handle_shutdown :: (id: Json_Value) {
 }
 
 handle_initialized :: () {
-    if !g_root  return;
+    if !g_root { return; }
     scan_workspace();
     run_diagnostics();
 }
 
 handle_did_open :: (params: Json_Value) {
     doc, ok := json_get_object(params, "textDocument");
-    if !ok  return;
+    if !ok { return; }
     path := uri_to_path(json_get_string(doc, "uri"));
     text := json_get_string(doc, "text");
     set_doc(path, text);
@@ -92,10 +92,10 @@ handle_did_open :: (params: Json_Value) {
 
 handle_did_change :: (params: Json_Value) {
     doc, ok := json_get_object(params, "textDocument");
-    if !ok  return;
+    if !ok { return; }
     path                := uri_to_path(json_get_string(doc, "uri"));
     changes, changes_ok := json_get(params, "contentChanges");
-    if !changes_ok || changes.kind != .ARRAY || changes.elements.count == 0  return;
+    if !changes_ok || changes.kind != .ARRAY || changes.elements.count == 0 { return; }
     text := json_get_string(changes.elements[changes.elements.count - 1], "text");
     set_doc(path, text);
     index_file(path, text);
@@ -104,7 +104,7 @@ handle_did_change :: (params: Json_Value) {
 
 handle_did_close :: (params: Json_Value) {
     doc, ok := json_get_object(params, "textDocument");
-    if !ok  return;
+    if !ok { return; }
     close_doc(uri_to_path(json_get_string(doc, "uri")));
 }
 
@@ -114,7 +114,7 @@ handle_document_symbol :: (id: Json_Value, params: Json_Value) {
     builder: String_Builder;
     append(*builder, "[");
     for decls {
-        if it_index > 0  append(*builder, ",");
+        if it_index > 0 { append(*builder, ","); }
         print_to_builder(*builder, "{\"name\":\"%\",\"kind\":%,\"location\":", json_escape(it.name), symbol_kind_number(it.kind));
         append_location(*builder, it);
         append(*builder, "}");
@@ -149,13 +149,13 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
     if dotted {
         members: [..] Decl;
         for matches  if it.kind == .ENUM_MEMBER  array_add(*members, it);
-        if members.count > 0  matches = members;
+        if members.count > 0 { matches = members; }
     }
     if matches.count > 0 {
         builder: String_Builder;
         append(*builder, "[");
         for matches {
-            if it_index > 0  append(*builder, ",");
+            if it_index > 0 { append(*builder, ","); }
             append_location(*builder, it);
         }
         append(*builder, "]");
@@ -171,10 +171,10 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
     chosen := -1;
     for hits {
         if it.line <= cast(s32) line {
-            if chosen == -1 || it.line > hits[chosen].line  chosen = it_index;
+            if chosen == -1 || it.line > hits[chosen].line { chosen = it_index; }
         }
     }
-    if chosen == -1  chosen = 0;
+    if chosen == -1 { chosen = 0; }
     hit := hits[chosen];
     respond(id, tprint("[{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}]",
         path_to_uri(path), hit.line, hit.col, hit.line, hit.name_end));
@@ -198,7 +198,7 @@ handle_references :: (id: Json_Value, params: Json_Value) {
     ctx, ctx_ok         := json_get_object(params, "context");
     if ctx_ok {
         value, value_ok := json_get(ctx, "includeDeclaration");
-        if value_ok && value.kind == .BOOLEAN  include_declaration = value.boolean;
+        if value_ok && value.kind == .BOOLEAN { include_declaration = value.boolean; }
     }
 
     builder: String_Builder;
@@ -207,7 +207,7 @@ handle_references :: (id: Json_Value, params: Json_Value) {
     total := 0;
     for file: g_files {
         file_text, file_ok := get_text(file);
-        if !file_ok  continue;
+        if !file_ok { continue; }
         total += append_references_in_file(*builder, file, file_text, word, *first, include_declaration);
     }
     append(*builder, "]");
@@ -232,7 +232,7 @@ handle_hover :: (id: Json_Value, params: Json_Value) {
     if dotted {
         members: [..] Decl;
         for matches  if it.kind == .ENUM_MEMBER  array_add(*members, it);
-        if members.count > 0  matches = members;
+        if members.count > 0 { matches = members; }
     }
     if matches.count == 0 {
         respond(id, "null");
@@ -250,7 +250,7 @@ handle_completion :: (id: Json_Value, params: Json_Value) {
     builder: String_Builder;
     append(*builder, "[");
     for g_decls {
-        if it_index > 0  append(*builder, ",");
+        if it_index > 0 { append(*builder, ","); }
         print_to_builder(*builder, "{\"label\":\"%\",\"kind\":%,\"detail\":\"%\"}",
             json_escape(it.name), completion_kind_number(it.kind), json_escape(it.signature));
     }
@@ -286,9 +286,9 @@ handle_workspace_symbol :: (id: Json_Value, params: Json_Value) {
         if query {
             name_lower := to_lower_copy(it.name);
             found, _   := contains(name_lower, query);
-            if !found  continue;
+            if !found { continue; }
         }
-        if !first  append(*builder, ",");
+        if !first { append(*builder, ","); }
         first = false;
         print_to_builder(*builder, "{\"name\":\"%\",\"kind\":%,\"location\":", json_escape(it.name), symbol_kind_number(it.kind));
         append_location(*builder, it);
@@ -300,16 +300,16 @@ handle_workspace_symbol :: (id: Json_Value, params: Json_Value) {
 
 request_path :: (params: Json_Value) -> string {
     doc, ok := json_get_object(params, "textDocument");
-    if !ok  return "";
+    if !ok { return ""; }
     return uri_to_path(json_get_string(doc, "uri"));
 }
 
 request_position :: (params: Json_Value) -> s64, s64 {
     position, ok := json_get_object(params, "position");
-    if !ok  return -1, -1;
+    if !ok { return -1, -1; }
     line, line_ok      := json_get_int(position, "line");
     character, char_ok := json_get_int(position, "character");
-    if !line_ok || !char_ok  return -1, -1;
+    if !line_ok || !char_ok { return -1, -1; }
     return line, character;
 }
 
@@ -317,12 +317,12 @@ word_at :: (text: string, line: s64, character: s64) -> string, bool {
     offset  := 0;
     current := 0;
     while offset < text.count && current < line {
-        if text[offset] == #char "\n"  current += 1;
+        if text[offset] == #char "\n" { current += 1; }
         offset += 1;
     }
-    if current != line  return "", false;
+    if current != line { return "", false; }
     position := offset + character;
-    if position > text.count  return "", false;
+    if position > text.count { return "", false; }
 
     is_word :: (c: u8) -> bool {
         return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z")
@@ -333,9 +333,9 @@ word_at :: (text: string, line: s64, character: s64) -> string, bool {
     while start > offset && is_word(text[start - 1])  start -= 1;
     end := position;
     while end < text.count && text[end] != #char "\n" && is_word(text[end])  end += 1;
-    if end <= start  return "", false;
+    if end <= start { return "", false; }
     dotted := start > 0 && text[start - 1] == #char ".";
-    if dotted && start > 1 && is_word(text[start - 2])  dotted = false;
+    if dotted && start > 1 && is_word(text[start - 2]) { dotted = false; }
     return slice(text, start, end - start), dotted;
 }
 
@@ -344,38 +344,38 @@ directive_target :: (path: string, text: string, line: s64, character: s64) -> s
 
     resolve :: (line_text: string, character: s64, key: string) -> string {
         key_index := find_index_from_left(line_text, key);
-        if key_index == -1  return "";
+        if key_index == -1 { return ""; }
         q1 := -1;
         i  := key_index + key.count;
         while i < line_text.count {
             if line_text[i] == #char "\"" { q1 = i; break; }
             i += 1;
         }
-        if q1 == -1  return "";
+        if q1 == -1 { return ""; }
         q2 := -1;
         i = q1 + 1;
         while i < line_text.count {
             if line_text[i] == #char "\"" { q2 = i; break; }
             i += 1;
         }
-        if q2 == -1  return "";
-        if character <= q1 || character > q2  return "";
+        if q2 == -1 { return ""; }
+        if character <= q1 || character > q2 { return ""; }
         return slice(line_text, q1 + 1, q2 - q1 - 1);
     }
 
     loaded := resolve(line_text, character, "#load");
     if loaded {
         target := tprint("%/%", dir_of(path), loaded);
-        if file_exists(target)  return target;
+        if file_exists(target) { return target; }
         return "";
     }
 
     imported := resolve(line_text, character, "#import");
     if imported {
         target := tprint("%/%/module.jai", modules_root(), imported);
-        if file_exists(target)  return target;
+        if file_exists(target) { return target; }
         target = tprint("%/%.jai", modules_root(), imported);
-        if file_exists(target)  return target;
+        if file_exists(target) { return target; }
     }
     return "";
 }
@@ -412,7 +412,7 @@ append_references_in_file :: (builder: *String_Builder, path: string, text: stri
                 }
             }
             if !skip {
-                if !first.*  append(builder, ",");
+                if !first.* { append(builder, ","); }
                 first.* = false;
                 print_to_builder(builder,
                     "{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}",

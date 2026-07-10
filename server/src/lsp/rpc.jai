@@ -10,7 +10,7 @@ read_message :: () -> string, bool {
             }
             total := header_end + 4 + content_length;
             while read_buffer.count < total {
-                if !read_more()  return "", false;
+                if !read_more() { return "", false; }
             }
             body: string;
             {
@@ -20,7 +20,7 @@ read_message :: () -> string, bool {
             consume(total);
             return body, true;
         }
-        if !read_more()  return "", false;
+        if !read_more() { return "", false; }
     }
     return "", false;
 }
@@ -51,7 +51,7 @@ write_all :: (fd: s32, s: string) {
     offset := 0;
     while offset < s.count {
         n := Posix.write(fd, s.data + offset, cast(u64)(s.count - offset));
-        if n <= 0  break;
+        if n <= 0 { break; }
         offset += n;
     }
 }
@@ -82,14 +82,14 @@ find_header_end :: () -> s64 {
 parse_content_length :: (header: string) -> s64 {
     KEY :: "Content-Length:";
     index := find_index_from_left(header, KEY);
-    if index == -1  return -1;
+    if index == -1 { return -1; }
     rest := slice(header, index + KEY.count, header.count - index - KEY.count);
     rest = trim(rest);
     end := find_index_from_left(rest, #char "\r");
-    if end != -1  rest = slice(rest, 0, end);
+    if end != -1 { rest = slice(rest, 0, end); }
     rest = trim(rest);
     value, ok := string_to_int(rest, 10, s64);
-    if !ok  return -1;
+    if !ok { return -1; }
     return value;
 }
 
@@ -100,14 +100,14 @@ read_more :: () -> bool {
         array_reserve(*read_buffer, read_buffer.count + CHUNK);
     }
     n := Posix.read(0, read_buffer.data + read_buffer.count, CHUNK);
-    if n <= 0  return false;
+    if n <= 0 { return false; }
     read_buffer.count += n;
     return true;
 }
 
 consume :: (count: s64) {
     remaining := read_buffer.count - count;
-    if remaining > 0  memcpy(read_buffer.data, read_buffer.data + count, remaining);
+    if remaining > 0 { memcpy(read_buffer.data, read_buffer.data + count, remaining); }
     read_buffer.count = remaining;
 }
 

@@ -24,7 +24,7 @@ index_file :: (path: string, content: string) {
 
     toks := collect_tokens(content);
 
-    curly_stack: [..] bool;
+    curly_stack:[..] bool;
     opaque_depth            := 0;
     pending_transparent     := false;
     last_closed_transparent := false;
@@ -35,14 +35,14 @@ index_file :: (path: string, content: string) {
         t := toks[i];
         if t.type == {
             case .KEYWORD_IF;
-                if i + 1 < toks.count && toks[i+1].type == cast(Token_Type) #char "#"  pending_transparent = true;
+                if i + 1 < toks.count && toks[i+1].type == cast(Token_Type) #char "#" { pending_transparent = true; }
             case .KEYWORD_ELSE;
-                if last_closed_transparent  pending_transparent = true;
+                if last_closed_transparent { pending_transparent = true; }
             case cast(Token_Type) #char ";";
                 pending_transparent = false;
             case cast(Token_Type) #char "{";
                 array_add(*curly_stack, pending_transparent);
-                if !pending_transparent  opaque_depth += 1;
+                if !pending_transparent { opaque_depth += 1; }
                 pending_transparent = false;
             case .BEGIN_STRUCT_LITERAL;
                 array_add(*curly_stack, false);
@@ -50,7 +50,7 @@ index_file :: (path: string, content: string) {
             case cast(Token_Type) #char "}";
                 if curly_stack.count > 0 {
                     last_closed_transparent = curly_stack[curly_stack.count - 1];
-                    if !last_closed_transparent { opaque_depth -= 1; };
+                    if !last_closed_transparent { opaque_depth -= 1; }
                     curly_stack.count -= 1;
                 }
             case cast(Token_Type) #char "("; paren += 1;
@@ -68,13 +68,13 @@ index_file :: (path: string, content: string) {
                     kind := Decl_Kind.CONSTANT;
                     if i + 3 < toks.count {
                         n := toks[i+3].type;
-                        if n == .KEYWORD_STRUCT || n == .KEYWORD_UNION           kind = .STRUCT;
-                        else if n == .KEYWORD_ENUM || n == .KEYWORD_ENUM_FLAGS   kind = .ENUM;
-                        else if n == cast(Token_Type) #char "("                  kind = .PROCEDURE;
-                        else if n == .KEYWORD_INLINE || n == .KEYWORD_NO_INLINE  kind = .PROCEDURE;
+                        if n == .KEYWORD_STRUCT || n == .KEYWORD_UNION          { kind = .STRUCT; }
+                        else if n == .KEYWORD_ENUM || n == .KEYWORD_ENUM_FLAGS  { kind = .ENUM; }
+                        else if n == cast(Token_Type) #char "("                 { kind = .PROCEDURE; }
+                        else if n == .KEYWORD_INLINE || n == .KEYWORD_NO_INLINE { kind = .PROCEDURE; }
                     }
                     add_decl(path, content, t, kind);
-                    if kind == .ENUM  index_enum_members(path, toks, i + 3, t.name);
+                    if kind == .ENUM { index_enum_members(path, toks, i + 3, t.name); }
                 } else {
                     add_decl(path, content, t, .VARIABLE);
                 }
@@ -117,12 +117,12 @@ Local_Hit :: struct {
 find_local_decl_sites :: (content: string, name: string) -> [..] Local_Hit {
     hits: [..] Local_Hit;
     toks := collect_tokens(content);
-    if toks.count == 0  return hits;
+    if toks.count == 0 { return hits; }
     for i: 0..toks.count-1 {
         t := toks[i];
-        if t.type != .IDENT || t.name != name  continue;
-        if i + 1 >= toks.count || toks[i+1].type != cast(Token_Type) #char ":"  continue;
-        if i > 0 && toks[i-1].type == cast(Token_Type) #char "."  continue;
+        if t.type != .IDENT || t.name != name { continue; }
+        if i + 1 >= toks.count || toks[i+1].type != cast(Token_Type) #char ":" { continue; }
+        if i > 0 && toks[i-1].type == cast(Token_Type) #char "." { continue; }
         hit: Local_Hit;
         hit.line     = t.l0 - 1;
         hit.col      = t.c0 - 1;
@@ -142,7 +142,7 @@ get_line :: (content: string, line0: s64) -> string {
             while end < content.count && content[end] != #char "\n"  end += 1;
             return slice(content, start, end - start);
         }
-        if content[i] == #char "\n"  current += 1;
+        if content[i] == #char "\n" { current += 1; }
     }
     return "";
 }
@@ -153,11 +153,11 @@ index_enum_members :: (path: string, toks: [] Tok, enum_keyword_index: s64, enum
     j := enum_keyword_index;
     while j < toks.count {
         t := toks[j].type;
-        if t == cast(Token_Type) #char "{"  break;
-        if t == cast(Token_Type) #char ";"  return;
+        if t == cast(Token_Type) #char "{" { break; }
+        if t == cast(Token_Type) #char ";" { return; }
         j += 1;
     }
-    if j >= toks.count  return;
+    if j >= toks.count { return; }
 
     depth := 1;
     prev  := cast(Token_Type) #char "{";
@@ -199,16 +199,16 @@ collect_tokens :: (content: string) -> [..] Tok {
     set_input_from_string(*lexer, content);
     while 1 {
         token := peek_next_token(*lexer);
-        if token.type == .END_OF_INPUT  break;
+        if token.type == .END_OF_INPUT { break; }
         tok: Tok;
         tok.type = token.type;
         tok.l0   = token.l0;
         tok.c0   = token.c0;
         tok.c1   = token.c1;
-        if token.type == .IDENT  tok.name = copy_string(token.ident_value.name);
+        if token.type == .IDENT { tok.name = copy_string(token.ident_value.name); }
         array_add(*toks, tok);
         eat_token(*lexer);
-        if lexer.reported_error  break;
+        if lexer.reported_error { break; }
     }
     return toks;
 }

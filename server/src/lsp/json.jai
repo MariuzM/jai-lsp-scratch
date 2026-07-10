@@ -28,7 +28,7 @@ json_parse :: (s: string) -> Json_Value, bool {
     p.s = s;
     value := parse_value(*p, 0);
     skip_whitespace(*p);
-    if p.failed || p.pos != p.s.count  return .{}, false;
+    if p.failed || p.pos != p.s.count { return .{}, false; }
     return value, true;
 }
 
@@ -39,19 +39,19 @@ json_get :: (v: Json_Value, key: string) -> Json_Value, bool {
 
 json_get_string :: (v: Json_Value, key: string) -> string {
     member, ok := json_get(v, key);
-    if !ok || member.kind != .STRING  return "";
+    if !ok || member.kind != .STRING { return ""; }
     return member.str;
 }
 
 json_get_int :: (v: Json_Value, key: string) -> s64, bool {
     member, ok := json_get(v, key);
-    if !ok || member.kind != .INTEGER  return 0, false;
+    if !ok || member.kind != .INTEGER { return 0, false; }
     return member.integer, true;
 }
 
 json_get_object :: (v: Json_Value, key: string) -> Json_Value, bool {
     member, ok := json_get(v, key);
-    if !ok || member.kind != .OBJECT  return .{}, false;
+    if !ok || member.kind != .OBJECT { return .{}, false; }
     return member, true;
 }
 
@@ -95,14 +95,14 @@ Json_Parser :: struct {
 }
 
 peek :: (p: *Json_Parser) -> u8 {
-    if p.pos >= p.s.count  return 0;
+    if p.pos >= p.s.count { return 0; }
     return p.s[p.pos];
 }
 
 skip_whitespace :: (p: *Json_Parser) {
     while p.pos < p.s.count {
         c := p.s[p.pos];
-        if c != #char " " && c != #char "\t" && c != #char "\n" && c != #char "\r"  break;
+        if c != #char " " && c != #char "\t" && c != #char "\n" && c != #char "\r" { break; }
         p.pos += 1;
     }
 }
@@ -144,7 +144,7 @@ parse_value :: (p: *Json_Parser, depth: int) -> Json_Value {
                 result.boolean = false;
             }
         case #char "n";
-            if parse_literal(p, "null")  result.kind = .NULL;
+            if parse_literal(p, "null") { result.kind = .NULL; }
         case;
             result = parse_number(p);
     }
@@ -177,11 +177,11 @@ parse_object :: (p: *Json_Parser, depth: int) -> Json_Value {
         skip_whitespace(p);
         member: Json_Member;
         member.key = parse_string(p);
-        if p.failed  break;
+        if p.failed { break; }
         skip_whitespace(p);
-        if !expect(p, #char ":")  break;
+        if !expect(p, #char ":") { break; }
         member.value = parse_value(p, depth + 1);
-        if p.failed  break;
+        if p.failed { break; }
         array_add(*result.members, member);
         skip_whitespace(p);
         c := peek(p);
@@ -206,7 +206,7 @@ parse_array :: (p: *Json_Parser, depth: int) -> Json_Value {
     }
     while !p.failed {
         element := parse_value(p, depth + 1);
-        if p.failed  break;
+        if p.failed { break; }
         array_add(*result.elements, element);
         skip_whitespace(p);
         c := peek(p);
@@ -221,7 +221,7 @@ parse_array :: (p: *Json_Parser, depth: int) -> Json_Value {
 }
 
 parse_string :: (p: *Json_Parser) -> string {
-    if !expect(p, #char "\"")  return "";
+    if !expect(p, #char "\"") { return ""; }
     builder: String_Builder;
     while p.pos < p.s.count {
         c := p.s[p.pos];
@@ -231,7 +231,7 @@ parse_string :: (p: *Json_Parser) -> string {
         }
         if c == #char "\\" {
             p.pos += 1;
-            if p.pos >= p.s.count  break;
+            if p.pos >= p.s.count { break; }
             e := p.s[p.pos];
             p.pos += 1;
             if e == {
@@ -283,15 +283,15 @@ parse_string :: (p: *Json_Parser) -> string {
 }
 
 parse_hex4 :: (p: *Json_Parser) -> u32, bool {
-    if p.pos + 4 > p.s.count  return 0, false;
+    if p.pos + 4 > p.s.count { return 0, false; }
     value: u32 = 0;
     for i: 0..3 {
         c := p.s[p.pos + i];
         digit: u32;
-        if c >= #char "0" && c <= #char "9"       digit = c - #char "0";
-        else if c >= #char "a" && c <= #char "f"  digit = c - #char "a" + 10;
-        else if c >= #char "A" && c <= #char "F"  digit = c - #char "A" + 10;
-        else                                      return 0, false;
+        if c >= #char "0" && c <= #char "9"      { digit = c - #char "0"; }
+        else if c >= #char "a" && c <= #char "f" { digit = c - #char "a" + 10; }
+        else if c >= #char "A" && c <= #char "F" { digit = c - #char "A" + 10; }
+        else                                     { return 0, false; }
         value = (value << 4) | digit;
     }
     p.pos += 4;
@@ -319,7 +319,7 @@ append_utf8 :: (builder: *String_Builder, code: u32) {
 parse_number :: (p: *Json_Parser) -> Json_Value {
     result: Json_Value;
     start := p.pos;
-    if peek(p) == #char "-"  p.pos += 1;
+    if peek(p) == #char "-" { p.pos += 1; }
     digits   := 0;
     is_float := false;
     while p.pos < p.s.count {

@@ -9,7 +9,7 @@ g_indexed_modules: [..] string;
 
 get_text :: (path: string) -> string, bool {
     index := find_doc(path);
-    if index != -1  return g_docs[index].text, true;
+    if index != -1 { return g_docs[index].text, true; }
     content, ok := read_entire_file(path);
     return content, ok;
 }
@@ -30,7 +30,7 @@ set_doc :: (path: string, text: string) {
 
 close_doc :: (path: string) {
     index := find_doc(path);
-    if index == -1  return;
+    if index == -1 { return; }
     push_allocator(g_heap);
     free(g_docs[index].path);
     free(g_docs[index].text);
@@ -44,9 +44,9 @@ scan_workspace :: () {
     for filenames {
         found_build, _ := contains(it, "/.build/");
         found_out, _   := contains(it, "/build/");
-        if found_build || found_out  continue;
+        if found_build || found_out { continue; }
         content, ok := read_entire_file(it);
-        if !ok  continue;
+        if !ok { continue; }
         index_file(it, content);
         detect_entry_file(it, content);
         add_workspace_file(it);
@@ -57,7 +57,7 @@ scan_workspace :: () {
 }
 
 add_workspace_file :: (path: string) {
-    if !ends_with(path, ".jai")  return;
+    if !ends_with(path, ".jai") { return; }
     for g_files  if it == path  return;
     push_allocator(g_heap);
     array_add(*g_files, copy_string(path));
@@ -67,15 +67,15 @@ index_imported_modules :: (content: string) {
     remaining := content;
     while 1 {
         index := find_index_from_left(remaining, "#import");
-        if index == -1  break;
+        if index == -1 { break; }
         remaining = slice(remaining, index + 7, remaining.count - index - 7);
         k := 0;
         while k < remaining.count && remaining[k] == #char " "  k += 1;
-        if k >= remaining.count || remaining[k] != #char "\""  continue;
+        if k >= remaining.count || remaining[k] != #char "\"" { continue; }
         k += 1;
         start := k;
         while k < remaining.count && remaining[k] != #char "\"" && remaining[k] != #char "\n"  k += 1;
-        if k >= remaining.count || remaining[k] != #char "\""  continue;
+        if k >= remaining.count || remaining[k] != #char "\"" { continue; }
         index_module(slice(remaining, start, k - start));
     }
 }
@@ -101,7 +101,7 @@ resolve_compiler_path :: () {
                     dir       = slice(remaining, 0, colon);
                     remaining = slice(remaining, colon + 1, remaining.count - colon - 1);
                 }
-                if dir.count == 0  continue;
+                if dir.count == 0 { continue; }
                 candidate := tprint("%/%", dir, g_compiler);
                 if file_exists(candidate) {
                     path = candidate;
@@ -114,12 +114,12 @@ resolve_compiler_path :: () {
     for 1..8 {
         buffer: [4096] u8;
         n := Posix.readlink(temp_c_string(path), buffer.data, 4096);
-        if n <= 0  break;
+        if n <= 0 { break; }
         link: string;
         link.data  = buffer.data;
         link.count = n;
-        if link[0] == #char "/"  path = tprint("%", link);
-        else                     path = tprint("%/%", dir_of(path), link);
+        if link[0] == #char "/" { path = tprint("%", link); }
+        else                    { path = tprint("%/%", dir_of(path), link); }
     }
 
     if path != g_compiler {
@@ -131,7 +131,7 @@ resolve_compiler_path :: () {
 
 uri_to_path :: (uri: string) -> string {
     s := uri;
-    if starts_with(s, "file://")  s = slice(s, 7, s.count - 7);
+    if starts_with(s, "file://") { s = slice(s, 7, s.count - 7); }
     builder: String_Builder;
     i := 0;
     while i < s.count {
@@ -156,8 +156,8 @@ path_to_uri :: (path: string) -> string {
     append(*builder, "file://");
     for i: 0..path.count-1 {
         c := path[i];
-        if c == #char " "  append(*builder, "%20");
-        else               append(*builder, c);
+        if c == #char " " { append(*builder, "%20"); }
+        else              { append(*builder, c); }
     }
     return builder_to_string(*builder);
 }
@@ -165,7 +165,7 @@ path_to_uri :: (path: string) -> string {
 display_path :: (path: string) -> string {
     if g_root.count && starts_with(path, g_root) {
         relative := slice(path, g_root.count, path.count - g_root.count);
-        if relative.count && relative[0] == #char "/"  relative = slice(relative, 1, relative.count - 1);
+        if relative.count && relative[0] == #char "/" { relative = slice(relative, 1, relative.count - 1); }
         return relative;
     }
     marker := "/modules/";
@@ -180,7 +180,7 @@ display_path :: (path: string) -> string {
 dir_of :: (path: string) -> string {
     i := path.count - 1;
     while i >= 0 {
-        if path[i] == #char "/"  return slice(path, 0, i);
+        if path[i] == #char "/" { return slice(path, 0, i); }
         i -= 1;
     }
     return path;
@@ -200,7 +200,7 @@ visit_jai_files :: (info: *File_Visit_Info, results: *[..] string) {
 }
 
 index_module :: (name: string) {
-    if name.count == 0  return;
+    if name.count == 0 { return; }
     for g_indexed_modules  if it == name  return;
     {
         push_allocator(g_heap);
@@ -216,7 +216,7 @@ index_module :: (name: string) {
     }
     dir         := tprint("%/%", base, name);
     module_main := tprint("%/module.jai", dir);
-    if !file_exists(module_main)  return;
+    if !file_exists(module_main) { return; }
     filenames: [..] string;
     visit_files(dir, true, *filenames, visit_jai_files);
     count := 0;
@@ -229,13 +229,13 @@ index_module :: (name: string) {
 
 index_module_file :: (path: string) {
     content, ok := read_entire_file(path);
-    if !ok  return;
+    if !ok { return; }
     index_file(path, content);
 }
 
 hex_digit :: (c: u8) -> s32 {
-    if c >= #char "0" && c <= #char "9"  return c - #char "0";
-    if c >= #char "a" && c <= #char "f"  return c - #char "a" + 10;
-    if c >= #char "A" && c <= #char "F"  return c - #char "A" + 10;
+    if c >= #char "0" && c <= #char "9" { return c - #char "0"; }
+    if c >= #char "a" && c <= #char "f" { return c - #char "a" + 10; }
+    if c >= #char "A" && c <= #char "F" { return c - #char "A" + 10; }
     return -1;
 }

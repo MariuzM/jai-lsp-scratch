@@ -12,7 +12,7 @@ Diag :: struct {
 }
 
 run_diagnostics :: () {
-    if !g_entry_file  return;
+    if !g_entry_file { return; }
     make_directory_if_it_does_not_exist(CHECK_OUTPUT_DIR);
 
     result, output, error_output := run_command(
@@ -26,7 +26,7 @@ run_diagnostics :: () {
     for diags {
         already := false;
         for p: published  if p == it.path  already = true;
-        if already  continue;
+        if already { continue; }
         array_add(*published, it.path);
         publish_for_path(it.path, diags);
     }
@@ -34,7 +34,7 @@ run_diagnostics :: () {
     for old: g_last_diag_paths {
         still := false;
         for p: published  if p == old  still = true;
-        if !still  publish_for_path(old, .[]);
+        if !still { publish_for_path(old, .[]); }
     }
 
     {
@@ -46,7 +46,7 @@ run_diagnostics :: () {
 }
 
 detect_entry_file :: (path: string, content: string) {
-    if g_entry_file  return;
+    if g_entry_file { return; }
     found := contains(content, "main ::");
     if found {
         push_allocator(g_heap);
@@ -62,8 +62,8 @@ publish_for_path :: (path: string, diags: [] Diag) {
     print_to_builder(*builder, "{\"uri\":\"%\",\"diagnostics\":[", path_to_uri(path));
     first := true;
     for diags {
-        if it.path != path  continue;
-        if !first  append(*builder, ",");
+        if it.path != path { continue; }
+        if !first { append(*builder, ","); }
         first = false;
         print_to_builder(*builder,
             "{\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}},\"severity\":%,\"source\":\"jai\",\"message\":\"%\"}",
@@ -95,23 +95,23 @@ parse_compiler_output :: (s: string) -> [..] Diag {
         } else {
             marker_index = find_index_from_left(line, ": Warning: ");
             marker_len   = ": Warning: ".count;
-            if marker_index != -1  severity = 2;
+            if marker_index != -1 { severity = 2; }
         }
-        if severity == 0  continue;
+        if severity == 0 { continue; }
 
         location := slice(line, 0, marker_index);
         message  := slice(line, marker_index + marker_len, line.count - marker_index - marker_len);
 
         colon := last_index_of(location, #char ":");
-        if colon == -1  continue;
+        if colon == -1 { continue; }
         path     := slice(location, 0, colon);
         line_col := slice(location, colon + 1, location.count - colon - 1);
 
         comma := find_index_from_left(line_col, #char ",");
-        if comma == -1  continue;
+        if comma == -1 { continue; }
         line_number, line_ok := string_to_int(slice(line_col, 0, comma), 10, s32);
         col_number, col_ok   := string_to_int(slice(line_col, comma + 1, line_col.count - comma - 1), 10, s32);
-        if !line_ok || !col_ok  continue;
+        if !line_ok || !col_ok { continue; }
 
         diag: Diag;
         diag.path     = path;
@@ -127,7 +127,7 @@ parse_compiler_output :: (s: string) -> [..] Diag {
 last_index_of :: (s: string, c: u8) -> s64 {
     i := s.count - 1;
     while i >= 0 {
-        if s[i] == c  return i;
+        if s[i] == c { return i; }
         i -= 1;
     }
     return -1;

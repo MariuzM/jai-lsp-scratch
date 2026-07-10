@@ -21,7 +21,7 @@ main :: () {
 
     while !g_exit {
         body, ok := read_message();
-        if !ok  break;
+        if !ok { break; }
         handle_message(body);
         {
             push_allocator(g_heap);
@@ -33,9 +33,9 @@ main :: () {
 }
 
 stderr_logger :: (message: string, data: *void, info: Log_Info) {
-    if !message.count  return;
+    if !message.count { return; }
     write_all(2, message);
-    if message[message.count - 1] != #char "\n"  write_all(2, "\n");
+    if message[message.count - 1] != #char "\n" { write_all(2, "\n"); }
 }
 
 #load "lsp/rpc.jai";
