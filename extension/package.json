@@ -1,0 +1,62 @@
+{
+  "name": "jai-lsp-scratch",
+  "displayName": "Jai LSP Scratch",
+  "description": "Hand-built Jai language server written in Jai",
+  "publisher": "mariuzm",
+  "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MariuzM/jai-lsp-scratch.git"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:jai"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "jai",
+        "aliases": ["Jai", "jai"],
+        "extensions": [".jai"],
+        "configuration": "./syntaxes/language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "jai",
+        "scopeName": "source.jai",
+        "path": "./syntaxes/jai.json"
+      },
+      {
+        "scopeName": "markdown.jai.codeblock",
+        "path": "./syntaxes/codeblock.json",
+        "injectTo": ["text.html.markdown"],
+        "embeddedLanguages": {
+          "meta.embedded.block.jai": "jai"
+        }
+      }
+    ],
+    "configuration": {
+      "title": "Jai LSP Scratch",
+      "properties": {
+        "jaiLspScratch.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to a jai-lsp server binary. If empty, the platform binary bundled in the extension's bin/ folder is used."
+        },
+        "jaiLspScratch.compilerPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the Jai compiler used for diagnostics (e.g. /path/to/jai/bin/jai-macos). If empty, `jai` is looked up on PATH."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}

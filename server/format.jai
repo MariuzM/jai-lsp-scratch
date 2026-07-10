@@ -1,0 +1,570 @@
+format_source :: (text: string) -> string {
+    lines: [..] Out_Line;
+
+    s: Format_State;
+    array_add(*s.case_stack, false);
+
+    i := 0;
+    line_index := 0;
+    while i < text.count {
+        j := i;
+        while j < text.count && text[j] != #char "\n"  j += 1;
+        line := slice(text, i, j - i);
+
+        out: Out_Line;
+        if s.here_terminator.count > 0 {
+            out.text = line;
+            out.protected = true;
+            if trim(line) == s.here_terminator  s.here_terminator = "";
+        } else if s.block_comment_depth > 0 {
+            out.text = strip_trailing(line);
+            out.protected = true;
+            scan_line(*s, line, line_index);
+        } else {
+            content := trim(line);
+            if content.count > 0 {
+                level := s.curly + s.pb_indent;
+                extra := 0;
+                for s.case_stack  if it  extra += 1;
+                first := content[0];
+                if first == #char "}" || first == #char ")" || first == #char "]" {
+                    if first == #char "}" && s.case_stack[s.case_stack.count - 1]  extra -= 1;
+                    level -= 1;
+                } else if is_case_line(content) && s.case_stack[s.case_stack.count - 1] {
+                    extra -= 1;
+                }
+                level += extra;
+                if level < 0  level = 0;
+                out.text = make_line(level, content);
+                out.indent = level;
+            }
+            scan_line(*s, line, line_index);
+        }
+        array_add(*lines, out);
+
+        i = j + 1;
+        line_index += 1;
+    }
+
+    align_constant_groups(lines);
+    align_field_groups(lines);
+    align_assignment_groups(lines);
+    align_decl_groups(lines);
+    align_case_groups(lines);
+
+    last := lines.count - 1;
+    while last >= 0 && !lines[last].protected && lines[last].text.count == 0  last -= 1;
+
+    builder: String_Builder;
+    prev_blank := false;
+    emitted_any := false;
+    for k: 0..last {
+        it := lines[k];
+        is_blank := !it.protected && it.text.count == 0;
+        if is_blank {
+            if !emitted_any  continue;
+            if prev_blank    continue;
+        } else {
+            emitted_any = true;
+        }
+        append(*builder, it.text);
+        append(*builder, "\n");
+        prev_blank = is_blank;
+    }
+    return builder_to_string(*builder);
+}
+
+#scope_file
+
+Out_Line :: struct {
+    text: string;
+    indent: s64;
+    protected: bool;
+}
+
+make_line :: (level: s64, content: string) -> string {
+    builder: String_Builder;
+    for 1..level  append(*builder, "    ");
+    append(*builder, content);
+    return builder_to_string(*builder);
+}
+
+Const_Line :: struct {
+    ok: bool;
+    name: string;
+    rest: string;
+}
+
+parse_const_line :: (line: Out_Line) -> Const_Line {
+    result: Const_Line;
+    if line.protected  return result;
+    t := line.text;
+    k := line.indent * 4;
+    if t.count <= k  return result;
+
+    start := k;
+    while k < t.count && is_word_char(t[k])  k += 1;
+    if k == start  return result;
+    if t[start] >= #char "0" && t[start] <= #char "9"  return result;
+    name := slice(t, start, k - start);
+
+    while k < t.count && t[k] == #char " "  k += 1;
+    if k + 2 >= t.count || t[k] != #char ":" || t[k+1] != #char ":"  return result;
+    k += 2;
+    if t[k] != #char " " && t[k] != #char "("  return result;
+    while k < t.count && t[k] == #char " "  k += 1;
+    rest := slice(t, k, t.count - k);
+    if rest.count == 0  return result;
+
+    if rest[0] == #char "(" {
+        found_foreign, _ := contains(rest, "#foreign");
+        if !found_foreign  return result;
+    }
+    if starts_with(rest, "#string")  return result;
+    if starts_with(rest, "struct") || starts_with(rest, "enum") || starts_with(rest, "union") || starts_with(rest, "inline")  return result;
+    found_semicolon, _ := contains(rest, #char ";");
+    if !found_semicolon  return result;
+
+    result.ok = true;
+    result.name = name;
+    result.rest = rest;
+    return result;
+}
+
+align_constant_groups :: (lines: [] Out_Line) {
+    i := 0;
+    while i < lines.count {
+        first := parse_const_line(lines[i]);
+        if !first.ok {
+            i += 1;
+            continue;
+        }
+        indent := lines[i].indent;
+        j := i + 1;
+        while j < lines.count {
+            next := parse_const_line(lines[j]);
+            if !next.ok || lines[j].indent != indent  break;
+            j += 1;
+        }
+        if j - i >= 2 {
+            max_name := 0;
+            for k: i..j-1 {
+                p := parse_const_line(lines[k]);
+                if p.name.count > max_name  max_name = p.name.count;
+            }
+            for k: i..j-1 {
+                p := parse_const_line(lines[k]);
+                builder: String_Builder;
+                for 1..indent  append(*builder, "    ");
+                append(*builder, p.name);
+                for 1..(max_name - p.name.count + 1)  append(*builder, " ");
+                append(*builder, ":: ");
+                append(*builder, p.rest);
+                lines[k].text = builder_to_string(*builder);
+            }
+        }
+        i = j;
+    }
+}
+
+parse_field_line :: (line: Out_Line) -> Const_Line {
+    result: Const_Line;
+    if line.protected  return result;
+    t := line.text;
+    k := line.indent * 4;
+    if t.count <= k  return result;
+
+    start := k;
+    while k < t.count && is_word_char(t[k])  k += 1;
+    if k == start  return result;
+    if t[start] >= #char "0" && t[start] <= #char "9"  return result;
+    name := slice(t, start, k - start);
+
+    while k < t.count && t[k] == #char " "  k += 1;
+    if k >= t.count || t[k] != #char ":"  return result;
+    k += 1;
+    if k >= t.count  return result;
+    if t[k] == #char ":" || t[k] == #char "="  return result;
+    while k < t.count && t[k] == #char " "  k += 1;
+    rest := slice(t, k, t.count - k);
+    if rest.count == 0  return result;
+    found_semicolon, _ := contains(rest, #char ";");
+    if !found_semicolon  return result;
+
+    result.ok = true;
+    result.name = name;
+    result.rest = rest;
+    return result;
+}
+
+align_field_groups :: (lines: [] Out_Line) {
+    i := 0;
+    while i < lines.count {
+        first := parse_field_line(lines[i]);
+        if !first.ok {
+            i += 1;
+            continue;
+        }
+        indent := lines[i].indent;
+        j := i + 1;
+        while j < lines.count {
+            next := parse_field_line(lines[j]);
+            if !next.ok || lines[j].indent != indent  break;
+            j += 1;
+        }
+        if j - i >= 2 {
+            max_name := 0;
+            for k: i..j-1 {
+                p := parse_field_line(lines[k]);
+                if p.name.count > max_name  max_name = p.name.count;
+            }
+            for k: i..j-1 {
+                p := parse_field_line(lines[k]);
+                builder: String_Builder;
+                for 1..indent  append(*builder, "    ");
+                append(*builder, p.name);
+                append(*builder, ":");
+                for 1..(max_name - p.name.count + 1)  append(*builder, " ");
+                append(*builder, p.rest);
+                lines[k].text = builder_to_string(*builder);
+            }
+        }
+        i = j;
+    }
+}
+
+parse_assign_line :: (line: Out_Line) -> Const_Line {
+    result: Const_Line;
+    if line.protected  return result;
+    t := line.text;
+    k := line.indent * 4;
+    if t.count <= k  return result;
+
+    start := k;
+    while k < t.count && (is_word_char(t[k]) || t[k] == #char "." || t[k] == #char "[" || t[k] == #char "]")  k += 1;
+    if k == start  return result;
+    if !((t[start] >= #char "a" && t[start] <= #char "z") || (t[start] >= #char "A" && t[start] <= #char "Z") || t[start] == #char "_")  return result;
+    name := slice(t, start, k - start);
+
+    spaces := 0;
+    while k < t.count && t[k] == #char " " { spaces += 1; k += 1; }
+    if spaces == 0  return result;
+    if k >= t.count || t[k] != #char "="  return result;
+    k += 1;
+    if k >= t.count || t[k] == #char "="  return result;
+    while k < t.count && t[k] == #char " "  k += 1;
+    rest := slice(t, k, t.count - k);
+    if rest.count == 0  return result;
+    found_semicolon, _ := contains(rest, #char ";");
+    if !found_semicolon  return result;
+
+    result.ok = true;
+    result.name = name;
+    result.rest = rest;
+    return result;
+}
+
+align_assignment_groups :: (lines: [] Out_Line) {
+    i := 0;
+    while i < lines.count {
+        first := parse_assign_line(lines[i]);
+        if !first.ok {
+            i += 1;
+            continue;
+        }
+        indent := lines[i].indent;
+        j := i + 1;
+        while j < lines.count {
+            next := parse_assign_line(lines[j]);
+            if !next.ok || lines[j].indent != indent  break;
+            j += 1;
+        }
+        if j - i >= 2 {
+            max_name := 0;
+            for k: i..j-1 {
+                p := parse_assign_line(lines[k]);
+                if p.name.count > max_name  max_name = p.name.count;
+            }
+            for k: i..j-1 {
+                p := parse_assign_line(lines[k]);
+                builder: String_Builder;
+                for 1..indent  append(*builder, "    ");
+                append(*builder, p.name);
+                for 1..(max_name - p.name.count + 1)  append(*builder, " ");
+                append(*builder, "= ");
+                append(*builder, p.rest);
+                lines[k].text = builder_to_string(*builder);
+            }
+        }
+        i = j;
+    }
+}
+
+parse_decl_line :: (line: Out_Line) -> Const_Line {
+    result: Const_Line;
+    if line.protected  return result;
+    t := line.text;
+    k := line.indent * 4;
+    if t.count <= k  return result;
+
+    start := k;
+    while k < t.count && is_word_char(t[k])  k += 1;
+    if k == start  return result;
+    if t[start] >= #char "0" && t[start] <= #char "9"  return result;
+    name_end := k;
+
+    while k < t.count {
+        m := k;
+        while m < t.count && t[m] == #char " "  m += 1;
+        if m >= t.count || t[m] != #char ","  break;
+        m += 1;
+        while m < t.count && t[m] == #char " "  m += 1;
+        ident_start := m;
+        while m < t.count && is_word_char(t[m])  m += 1;
+        if m == ident_start  return result;
+        k = m;
+        name_end = m;
+    }
+    name := slice(t, start, name_end - start);
+
+    while k < t.count && t[k] == #char " "  k += 1;
+    if k + 1 >= t.count || t[k] != #char ":" || t[k+1] != #char "="  return result;
+    k += 2;
+    while k < t.count && t[k] == #char " "  k += 1;
+    rest := slice(t, k, t.count - k);
+    if rest.count == 0  return result;
+    found_semicolon, _ := contains(rest, #char ";");
+    if !found_semicolon  return result;
+
+    result.ok = true;
+    result.name = name;
+    result.rest = rest;
+    return result;
+}
+
+align_decl_groups :: (lines: [] Out_Line) {
+    i := 0;
+    while i < lines.count {
+        first := parse_decl_line(lines[i]);
+        if !first.ok {
+            i += 1;
+            continue;
+        }
+        indent := lines[i].indent;
+        j := i + 1;
+        while j < lines.count {
+            next := parse_decl_line(lines[j]);
+            if !next.ok || lines[j].indent != indent  break;
+            j += 1;
+        }
+        if j - i >= 2 {
+            max_name := 0;
+            for k: i..j-1 {
+                p := parse_decl_line(lines[k]);
+                if p.name.count > max_name  max_name = p.name.count;
+            }
+            for k: i..j-1 {
+                p := parse_decl_line(lines[k]);
+                builder: String_Builder;
+                for 1..indent  append(*builder, "    ");
+                append(*builder, p.name);
+                for 1..(max_name - p.name.count + 1)  append(*builder, " ");
+                append(*builder, ":= ");
+                append(*builder, p.rest);
+                lines[k].text = builder_to_string(*builder);
+            }
+        }
+        i = j;
+    }
+}
+
+parse_case_line :: (line: Out_Line) -> Const_Line {
+    result: Const_Line;
+    if line.protected  return result;
+    t := line.text;
+    k := line.indent * 4;
+    if t.count <= k + 4  return result;
+    if slice(t, k, 4) != "case"  return result;
+    after := t[k + 4];
+    if after != #char " " && after != #char ";"  return result;
+
+    semi := -1;
+    m := k;
+    while m < t.count {
+        if t[m] == #char "\"" {
+            m += 1;
+            while m < t.count {
+                if t[m] == #char "\\" { m += 2; continue; }
+                if t[m] == #char "\"" { m += 1; break; }
+                m += 1;
+            }
+            continue;
+        }
+        if t[m] == #char ";" { semi = m; break; }
+        m += 1;
+    }
+    if semi == -1  return result;
+
+    prefix := slice(t, k, semi - k + 1);
+    m = semi + 1;
+    spaces := 0;
+    while m < t.count && t[m] == #char " " { spaces += 1; m += 1; }
+    if spaces == 0  return result;
+    body := slice(t, m, t.count - m);
+    if body.count == 0  return result;
+    if starts_with(body, "//")  return result;
+
+    result.ok = true;
+    result.name = prefix;
+    result.rest = body;
+    return result;
+}
+
+align_case_groups :: (lines: [] Out_Line) {
+    i := 0;
+    while i < lines.count {
+        first := parse_case_line(lines[i]);
+        if !first.ok {
+            i += 1;
+            continue;
+        }
+        indent := lines[i].indent;
+        j := i + 1;
+        while j < lines.count {
+            next := parse_case_line(lines[j]);
+            if !next.ok || lines[j].indent != indent  break;
+            j += 1;
+        }
+        if j - i >= 2 {
+            max_prefix := 0;
+            for k: i..j-1 {
+                p := parse_case_line(lines[k]);
+                if p.name.count > max_prefix  max_prefix = p.name.count;
+            }
+            for k: i..j-1 {
+                p := parse_case_line(lines[k]);
+                builder: String_Builder;
+                for 1..indent  append(*builder, "    ");
+                append(*builder, p.name);
+                for 1..(max_prefix - p.name.count + 1)  append(*builder, " ");
+                append(*builder, p.rest);
+                lines[k].text = builder_to_string(*builder);
+            }
+        }
+        i = j;
+    }
+}
+
+Format_State :: struct {
+    curly: s64;
+    pb_indent: s64;
+    pb_stack: [..] Pb_Entry;
+    block_comment_depth: s64;
+    here_terminator: string;
+    case_stack: [..] bool;
+}
+
+Pb_Entry :: struct {
+    line: s64;
+    counts: bool;
+}
+
+is_word_char :: (c: u8) -> bool {
+    return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z")
+        || (c >= #char "0" && c <= #char "9") || c == #char "_";
+}
+
+is_case_line :: (content: string) -> bool {
+    if content.count < 4  return false;
+    if slice(content, 0, 4) != "case"  return false;
+    if content.count == 4  return true;
+    return !is_word_char(content[4]);
+}
+
+strip_trailing :: (line: string) -> string {
+    end := line.count;
+    while end > 0 && (line[end - 1] == #char " " || line[end - 1] == #char "\t" || line[end - 1] == #char "\r")  end -= 1;
+    return slice(line, 0, end);
+}
+
+scan_line :: (s: *Format_State, line: string, line_index: s64) {
+    content := trim(line);
+    saw_case := s.block_comment_depth == 0 && is_case_line(content);
+
+    k := 0;
+    while k < line.count {
+        c := line[k];
+
+        if s.block_comment_depth > 0 {
+            if c == #char "*" && k + 1 < line.count && line[k+1] == #char "/" {
+                s.block_comment_depth -= 1;
+                k += 2;
+                continue;
+            }
+            if c == #char "/" && k + 1 < line.count && line[k+1] == #char "*" {
+                s.block_comment_depth += 1;
+                k += 2;
+                continue;
+            }
+            k += 1;
+            continue;
+        }
+
+        if c == #char "/" && k + 1 < line.count {
+            if line[k+1] == #char "/"  break;
+            if line[k+1] == #char "*" {
+                s.block_comment_depth += 1;
+                k += 2;
+                continue;
+            }
+        }
+
+        if c == #char "\"" {
+            k += 1;
+            while k < line.count {
+                if line[k] == #char "\\" { k += 2; continue; }
+                if line[k] == #char "\"" { k += 1; break; }
+                k += 1;
+            }
+            continue;
+        }
+
+        if c == #char "#" && k + 7 <= line.count && slice(line, k + 1, 6) == "string"
+           && (k + 7 == line.count || !is_word_char(line[k+7])) {
+            m := k + 7;
+            while m < line.count && (line[m] == #char " " || line[m] == #char "\t")  m += 1;
+            start := m;
+            while m < line.count && is_word_char(line[m])  m += 1;
+            if m > start  s.here_terminator = slice(line, start, m - start);
+            return;
+        }
+
+        if c == {
+            case #char "{";
+                s.curly += 1;
+                array_add(*s.case_stack, false);
+            case #char "}";
+                s.curly -= 1;
+                if s.case_stack.count > 1  s.case_stack.count -= 1;
+            case #char "(";  #through;
+            case #char "[";
+                counts := s.pb_stack.count == 0 || s.pb_stack[s.pb_stack.count - 1].line != line_index;
+                entry: Pb_Entry;
+                entry.line = line_index;
+                entry.counts = counts;
+                array_add(*s.pb_stack, entry);
+                if counts  s.pb_indent += 1;
+            case #char ")";  #through;
+            case #char "]";
+                if s.pb_stack.count > 0 {
+                    top := s.pb_stack[s.pb_stack.count - 1];
+                    s.pb_stack.count -= 1;
+                    if top.counts  s.pb_indent -= 1;
+                }
+        }
+
+        k += 1;
+    }
+
+    if saw_case  s.case_stack[s.case_stack.count - 1] = true;
+}

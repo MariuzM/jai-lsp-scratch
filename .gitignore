@@ -1,0 +1,7 @@
+.build/
+server/jai-lsp-scratch
+server/*.dSYM/
+extension/bin/
+extension/node_modules/
+extension/*.vsix
+.DS_Store
