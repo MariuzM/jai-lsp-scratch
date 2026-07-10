@@ -4,7 +4,8 @@ A language server for the [Jai programming language](https://youtube.com/user/jb
 Jai itself, with a VS Code extension.
 
 > ⚠️ **Experimental project.** Built and tested against a leaked, outdated build of the Jai compiler
-> — not the current closed beta. Newer compiler versions of compiler might not work with this, until i can access i cant test and update.
+> — not the current closed beta. Newer compiler versions of compiler might not work with this, until
+> i can access i cant test and update.
 
 ## Features
 
@@ -144,7 +145,8 @@ resolve, set:
 
 ## Building from source
 
-Requires a Jai compiler (closed beta) on PATH, plus `node`/`npm` for packaging (and `watchexec` for `make dev`). First time: `cd extension && npm install`.
+Requires a Jai compiler (closed beta) on PATH, plus `node`/`npm` for packaging (and `watchexec` for
+`make dev`). First time: `cd extension && npm install`.
 
 ```
 make build      # compile the server -> server/build/jai-lsp-scratch
@@ -156,9 +158,12 @@ make release    # package + create/refresh the GitHub release for the current ve
 make clean      # remove build artifacts and .vsix files
 ```
 
-All build artifacts (executable, dSYM, intermediates) go to `server/build/` — `server/build.jai` is a metaprogram that sets `output_path` and `intermediate_path`.
+All build artifacts (executable, dSYM, intermediates) go to `server/build/` — `server/build.jai` is
+a metaprogram that sets `output_path` and `intermediate_path`.
 
-Dev loop: set `jaiLspScratch.serverPath` to `<repo>/server/build/jai-lsp-scratch`, run `make dev`, and reload the VS Code window after each rebuild — no reinstall needed. Clear the setting to go back to the bundled binary.
+Dev loop: set `jaiLspScratch.serverPath` to `<repo>/server/build/jai-lsp-scratch`, run `make dev`,
+and reload the VS Code window after each rebuild — no reinstall needed. Clear the setting to go back
+to the bundled binary.
 
 ## Credits
 
