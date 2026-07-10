@@ -51,6 +51,7 @@ format_source :: (text: string) -> string {
     align_assignment_groups(lines);
     align_decl_groups(lines);
     align_case_groups(lines);
+    align_if_else_pairs(lines);
 
     last := lines.count - 1;
     while last >= 0 && !lines[last].protected && lines[last].text.count == 0  last -= 1;
@@ -450,6 +451,127 @@ align_case_groups :: (lines: [] Out_Line) {
                 append(*builder, p.rest);
                 lines[k].text = builder_to_string(*builder);
             }
+        }
+        i = j;
+    }
+}
+
+Chain_Kind :: enum {
+    NONE;
+    IF;
+    ELSE_IF;
+    ELSE;
+}
+
+Chain_Line :: struct {
+    kind: Chain_Kind;
+    prefix: string;
+    stmt: string;
+}
+
+parse_chain_line :: (line: Out_Line) -> Chain_Line {
+    result: Chain_Line;
+    if line.protected  return result;
+    t := line.text;
+    k := line.indent * 4;
+
+    kind := Chain_Kind.NONE;
+    if t.count > k + 5 && slice(t, k, 5) == "else " {
+        k += 5;
+        while k < t.count && t[k] == #char " "  k += 1;
+        if t.count > k + 3 && slice(t, k, 3) == "if " {
+            kind = .ELSE_IF;
+            k += 3;
+        } else {
+            kind = .ELSE;
+        }
+    } else if t.count > k + 3 && slice(t, k, 3) == "if " {
+        kind = .IF;
+        k += 3;
+    }
+    if kind == .NONE  return result;
+
+    stmt: string;
+    cond: string;
+    if kind == .ELSE {
+        stmt = slice(t, k, t.count - k);
+    } else {
+        while k < t.count && t[k] == #char " "  k += 1;
+        cond_start := k;
+        paren := 0;
+        sep_start := -1;
+        while k < t.count {
+            c := t[k];
+            if c == #char "\"" {
+                k += 1;
+                while k < t.count {
+                    if t[k] == #char "\\" { k += 2; continue; }
+                    if t[k] == #char "\"" { k += 1; break; }
+                    k += 1;
+                }
+                continue;
+            }
+            if c == #char "(" || c == #char "["  paren += 1;
+            if c == #char ")" || c == #char "]"  paren -= 1;
+            if c == #char " " && paren == 0 && k + 1 < t.count && t[k+1] == #char " " {
+                sep_start = k;
+                break;
+            }
+            k += 1;
+        }
+        if sep_start == -1 || sep_start == cond_start  return result;
+        cond = slice(t, cond_start, sep_start - cond_start);
+        m := sep_start;
+        while m < t.count && t[m] == #char " "  m += 1;
+        stmt = slice(t, m, t.count - m);
+    }
+
+    if stmt.count == 0 || stmt[0] == #char "{"  return result;
+    if starts_with(stmt, "//")  return result;
+    found_semicolon, _ := contains(stmt, #char ";");
+    if !found_semicolon  return result;
+
+    result.kind = kind;
+    result.stmt = stmt;
+    if kind == {
+        case .IF;       result.prefix = tprint("if %", cond);
+        case .ELSE_IF;  result.prefix = tprint("else if %", cond);
+        case .ELSE;     result.prefix = "else";
+    }
+    return result;
+}
+
+align_if_else_pairs :: (lines: [] Out_Line) {
+    i := 0;
+    while i < lines.count {
+        first := parse_chain_line(lines[i]);
+        if first.kind != .IF {
+            i += 1;
+            continue;
+        }
+        indent := lines[i].indent;
+
+        j := i + 1;
+        while j < lines.count && lines[j].indent == indent {
+            next := parse_chain_line(lines[j]);
+            if next.kind != .ELSE_IF && next.kind != .ELSE  break;
+            j += 1;
+            if next.kind == .ELSE  break;
+        }
+
+        max_prefix := 0;
+        for k: i..j-1 {
+            p := parse_chain_line(lines[k]);
+            if p.prefix.count > max_prefix  max_prefix = p.prefix.count;
+        }
+        for k: i..j-1 {
+            p := parse_chain_line(lines[k]);
+            builder: String_Builder;
+            for 1..indent  append(*builder, "    ");
+            append(*builder, p.prefix);
+            for 1..(max_prefix - p.prefix.count + 2)  append(*builder, " ");
+            append(*builder, p.stmt);
+            lines[k].text = builder_to_string(*builder);
         }
         i = j;
     }

@@ -105,6 +105,8 @@ padded to the longest name + 1):
 - Assignments: `lvalue = expr;`
 - Variable declarations: `name := value;`, including multi-return `value, ok := ...`
 - Inline `case` bodies: `case .X;  statement;`
+- Inline `if` / `else if` / `else` chains: statements align two spaces after the longest
+  condition — `if cond  stmt;` with the `else` branch padded to the same column
 
 A blank line (or any non-matching line) separates groups — use one to keep two neighbors from
 aligning together.
