@@ -9,17 +9,17 @@ Json_Kind :: enum {
 }
 
 Json_Member :: struct {
-    key: string;
+    key:   string;
     value: Json_Value;
 }
 
 Json_Value :: struct {
-    kind: Json_Kind;
-    boolean: bool;
-    integer: s64;
-    number: float64;
-    str: string;
-    members: [..] Json_Member;
+    kind:     Json_Kind;
+    boolean:  bool;
+    integer:  s64;
+    number:   float64;
+    str:      string;
+    members:  [..] Json_Member;
     elements: [..] Json_Value;
 }
 
@@ -89,8 +89,8 @@ json_id_string :: (id: Json_Value) -> string {
 MAX_DEPTH :: 64;
 
 Json_Parser :: struct {
-    s: string;
-    pos: s64;
+    s:      string;
+    pos:    s64;
     failed: bool;
 }
 
@@ -132,15 +132,15 @@ parse_value :: (p: *Json_Parser, depth: int) -> Json_Value {
             result = parse_array(p, depth);
         case #char "\"";
             result.kind = .STRING;
-            result.str = parse_string(p);
+            result.str  = parse_string(p);
         case #char "t";
             if parse_literal(p, "true") {
-                result.kind = .BOOLEAN;
+                result.kind    = .BOOLEAN;
                 result.boolean = true;
             }
         case #char "f";
             if parse_literal(p, "false") {
-                result.kind = .BOOLEAN;
+                result.kind    = .BOOLEAN;
                 result.boolean = false;
             }
         case #char "n";
@@ -320,7 +320,7 @@ parse_number :: (p: *Json_Parser) -> Json_Value {
     result: Json_Value;
     start := p.pos;
     if peek(p) == #char "-"  p.pos += 1;
-    digits := 0;
+    digits   := 0;
     is_float := false;
     while p.pos < p.s.count {
         c := p.s[p.pos];
@@ -345,7 +345,7 @@ parse_number :: (p: *Json_Parser) -> Json_Value {
             p.failed = true;
             return result;
         }
-        result.kind = .FLOAT;
+        result.kind   = .FLOAT;
         result.number = value;
     } else {
         value, ok, remainder := string_to_int(token, 10, s64);
@@ -353,7 +353,7 @@ parse_number :: (p: *Json_Parser) -> Json_Value {
             p.failed = true;
             return result;
         }
-        result.kind = .INTEGER;
+        result.kind    = .INTEGER;
         result.integer = value;
     }
     return result;

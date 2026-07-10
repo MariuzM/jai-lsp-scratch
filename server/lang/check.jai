@@ -1,14 +1,14 @@
-g_entry_file: string;
+g_entry_file:      string;
 g_last_diag_paths: [..] string;
 
 CHECK_OUTPUT_DIR :: "/tmp/jai-lsp-scratch";
 
 Diag :: struct {
-    path: string;
-    line: s32;
-    col: s32;
+    path:     string;
+    line:     s32;
+    col:      s32;
     severity: s32;
-    message: string;
+    message:  string;
 }
 
 run_diagnostics :: () {
@@ -20,7 +20,7 @@ run_diagnostics :: () {
         capture_and_return_output = true, timeout_ms = 30000);
 
     combined := tprint("%\n%", output, error_output);
-    diags := parse_compiler_output(combined);
+    diags    := parse_compiler_output(combined);
 
     published: [..] string;
     for diags {
@@ -80,45 +80,45 @@ parse_compiler_output :: (s: string) -> [..] Diag {
         line: string;
         newline := find_index_from_left(remaining, #char "\n");
         if newline == -1 {
-            line = remaining;
+            line            = remaining;
             remaining.count = 0;
         } else {
-            line = slice(remaining, 0, newline);
+            line      = slice(remaining, 0, newline);
             remaining = slice(remaining, newline + 1, remaining.count - newline - 1);
         }
 
         severity: s32 = 0;
         marker_index := find_index_from_left(line, ": Error: ");
-        marker_len := ": Error: ".count;
+        marker_len   := ": Error: ".count;
         if marker_index != -1 {
             severity = 1;
         } else {
             marker_index = find_index_from_left(line, ": Warning: ");
-            marker_len = ": Warning: ".count;
+            marker_len   = ": Warning: ".count;
             if marker_index != -1  severity = 2;
         }
         if severity == 0  continue;
 
         location := slice(line, 0, marker_index);
-        message := slice(line, marker_index + marker_len, line.count - marker_index - marker_len);
+        message  := slice(line, marker_index + marker_len, line.count - marker_index - marker_len);
 
         colon := last_index_of(location, #char ":");
         if colon == -1  continue;
-        path := slice(location, 0, colon);
+        path     := slice(location, 0, colon);
         line_col := slice(location, colon + 1, location.count - colon - 1);
 
         comma := find_index_from_left(line_col, #char ",");
         if comma == -1  continue;
         line_number, line_ok := string_to_int(slice(line_col, 0, comma), 10, s32);
-        col_number, col_ok := string_to_int(slice(line_col, comma + 1, line_col.count - comma - 1), 10, s32);
+        col_number, col_ok   := string_to_int(slice(line_col, comma + 1, line_col.count - comma - 1), 10, s32);
         if !line_ok || !col_ok  continue;
 
         diag: Diag;
-        diag.path = path;
-        diag.line = max(line_number - 1, 0);
-        diag.col = max(col_number - 1, 0);
+        diag.path     = path;
+        diag.line     = max(line_number - 1, 0);
+        diag.col      = max(col_number - 1, 0);
         diag.severity = severity;
-        diag.message = message;
+        diag.message  = message;
         array_add(*diags, diag);
     }
     return diags;
