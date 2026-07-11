@@ -4,8 +4,8 @@ A language server for the [Jai programming language](https://youtube.com/user/jb
 Jai itself, with a VS Code extension.
 
 > ⚠️ **Experimental project.** Built and tested against a leaked, outdated build of the Jai compiler
-> — not the current closed beta. Newer compiler versions of compiler might not work with this, until
-> i can access i cant test and update.
+> — not the current closed beta. Newer compiler versions might not work with this; until I can access
+> one, I can't test and update.
 
 ## Features
 
@@ -180,7 +180,8 @@ age, has_age := json_get(root, "age");
   disambiguates traps like `if cond  a; b;` where `b;` runs unconditionally
 - Single-line `if` / `else if` bodies get the `then` keyword: `if cond  stmt;` becomes
   `if cond then stmt;` (bare `else  stmt;` becomes `else stmt;`); single-line `while` / `for`
-  bodies are braced
+  bodies are braced (`while x > 0  step();` becomes `while x > 0 { step(); }`). When sloppy
+  spacing makes the condition/body boundary ambiguous, the line is only cleaned, never restructured
 - Short `if` / `else` bodies collapse to one line (`if cond { a += 1; b += 1; }`) when the result
   fits 100 columns and the body is simple statements only; longer or complex bodies stay multi-line
 - `if` / `else` lines using the `then` keyword are never split, wrapped, or restructured — only
@@ -193,9 +194,6 @@ age, has_age := json_get(root, "age");
 - Trailing `//` comments get exactly two spaces before them
 - Cleanup runs first; the alignment rules below then re-create every deliberate column, so stale
   hand-padding disappears while intentional alignment is rebuilt
-- Single-line `while` / `for` bodies are braced like `if` bodies (`while x > 0  step();` becomes
-  `while x > 0 { step(); }`); when sloppy spacing makes the condition/body boundary ambiguous, the
-  line is only cleaned, never restructured
 
 **Indentation & whitespace**
 
@@ -232,7 +230,8 @@ aligning together.
 
 **Never touched**
 
-- Anything inside strings, `#string` here-strings, and block comments
+- Anything inside strings, `#string` here-strings (except `#string HTML` indentation, above), and
+  block comments
 - Spacing inside a line beyond the alignment rules above (hand-formatting survives)
 - Multi-line declarations (`proc :: (…) {`, `X :: struct {`) — only single-line `;`-terminated
   declarations align
@@ -271,7 +270,7 @@ Requires a Jai compiler (closed beta) on PATH, plus `node`/`npm` for packaging (
 
 ```
 make build      # compile the server -> server/build/jai-lsp-scratch
-make dev        # rebuild on every change under server/ (watchexec)
+make dev        # rebuild on every change under server/src/ (watchexec)
 make bundle     # build + copy the binary into extension/bin/
 make package    # bundle + produce the .vsix
 make install    # package + install the .vsix into VS Code
