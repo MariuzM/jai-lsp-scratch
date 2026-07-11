@@ -222,6 +222,14 @@ padded to the longest name + 1):
 A blank line (or any non-matching line) separates groups — use one to keep two neighbors from
 aligning together.
 
+**HTML here-strings**
+
+- Content of `#string HTML` here-strings is re-indented by tag nesting depth (4 spaces per level) —
+  indentation only, the markup itself is never changed
+- `<style>` / `<script>` contents are kept flat at one level; void tags (`<meta>`, `<img>`, `<br>`,
+  ...), self-closing tags, doctype, and comments don't open a level
+- Here-strings with any other terminator (`#string DONE`, ...) remain completely untouched
+
 **Never touched**
 
 - Anything inside strings, `#string` here-strings, and block comments
