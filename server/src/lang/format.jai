@@ -515,8 +515,7 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
 
     content := trim(s);
     is_case := is_case_line(content);
-    is_then := (starts_with(content, "if ") || starts_with(content, "else")) && has_then_keyword(content);
-    semis   := 0;
+    semis := 0;
 
     k := 0;
     while k < s.count {
@@ -580,7 +579,7 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
             case #char "]"; paren -= 1;
         }
 
-        if c == #char ";" && curly <= 0 && paren <= 0 && !is_then {
+        if c == #char ";" && curly <= 0 && paren <= 0 {
             semis += 1;
             if !(is_case && semis == 1) {
                 m := k + 1;

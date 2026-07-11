@@ -121,11 +121,17 @@ if cond { a += 1; b += 1; }
 Bodies stay multi-line when the collapsed form would exceed 100 characters, or when they contain
 nested blocks, control flow, comments, or blank lines.
 
-Lines using the `then` keyword are kept inline exactly as written (spacing normalized) — `then` is
-your explicit "leave this line alone" marker:
+A second statement after an inline `if` always moves to its own line, because in Jai the `if`
+(with or without `then`) governs only the first statement — the split makes the real behavior
+visible:
 
 ```jai
-if x > 5 then y += 1; z += 1;    // stays on one line; note z += 1 is NOT inside the if
+// before
+if x > 5 then y += 1; z += 1;    // z += 1 runs ALWAYS, even when x <= 5
+
+// after
+if x > 5 then y += 1;
+z += 1;
 ```
 
 Unbraced chains become `then` chains; chains written with braces keep them and align their blocks
@@ -184,8 +190,8 @@ age, has_age := json_get(root, "age");
   spacing makes the condition/body boundary ambiguous, the line is only cleaned, never restructured
 - Short `if` / `else` bodies collapse to one line (`if cond { a += 1; b += 1; }`) when the result
   fits 100 columns and the body is simple statements only; longer or complex bodies stay multi-line
-- `if` / `else` lines using the `then` keyword are never split, wrapped, or restructured — only
-  their spacing is normalized
+- Single-statement `then` lines you write yourself are kept as-is (spacing normalized); extra
+  statements after the `if`'s first `;` always split onto their own line
 
 **Global whitespace cleanup**
 
