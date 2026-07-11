@@ -46,3 +46,6 @@ stderr_logger :: (message: string, data: *void, info: Log_Info) {
 #load "lang/index.jai";
 #load "lang/check.jai";
 #load "lang/format.jai";
+#load "lang/format_split.jai";
+#load "lang/format_align.jai";
+#load "lang/format_html.jai";

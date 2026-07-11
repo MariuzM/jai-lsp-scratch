@@ -59,7 +59,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.14.0\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.15.0\"}}");
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -183,6 +183,8 @@ handle_references :: (id: Json_Value, params: Json_Value) {
         if value_ok && value.kind == .BOOLEAN { include_declaration = value.boolean; }
     }
 
+    decl_sites := find_decls(word);
+
     builder: String_Builder;
     append(*builder, "[");
     first := true;
@@ -190,7 +192,7 @@ handle_references :: (id: Json_Value, params: Json_Value) {
     for file: g_files {
         file_text, file_ok := get_text(file);
         if !file_ok { continue; }
-        total += append_references_in_file(*builder, file, file_text, word, *first, include_declaration);
+        total += append_references_in_file(*builder, file, file_text, word, *first, include_declaration, decl_sites);
     }
     append(*builder, "]");
     log_err("references for '%': % locations", word, total);
@@ -236,18 +238,17 @@ handle_completion :: (id: Json_Value, params: Json_Value) {
         needs_import := false;
         if it.module.count > 0 {
             imported := false;
-            for existing: imports  if existing == it.module then imported = true;
+            for existing: imports if existing == it.module then imported = true;
             needs_import = !imported;
         }
+        append(*builder, "{");
+        append(*builder, it.completion_base);
         if needs_import {
             print_to_builder(*builder,
-                "{\"label\":\"%\",\"kind\":%,\"detail\":\"% — %\",\"additionalTextEdits\":[{\"range\":{\"start\":{\"line\":%,\"character\":0},\"end\":{\"line\":%,\"character\":0}},\"newText\":\"#import \\\"%\\\";\\n\"}]}",
-                json_escape(it.name), completion_kind_number(it.kind), json_escape(it.module), json_escape(it.signature),
+                ",\"additionalTextEdits\":[{\"range\":{\"start\":{\"line\":%,\"character\":0},\"end\":{\"line\":%,\"character\":0}},\"newText\":\"#import \\\"%\\\";\\n\"}]",
                 insert_line, insert_line, json_escape(it.module));
-        } else {
-            print_to_builder(*builder, "{\"label\":\"%\",\"kind\":%,\"detail\":\"%\"}",
-                json_escape(it.name), completion_kind_number(it.kind), json_escape(it.signature));
         }
+        append(*builder, "}");
     }
     append(*builder, "]");
     respond(id, builder_to_string(*builder));
@@ -395,7 +396,7 @@ directive_target :: (path: string, text: string, line: s64, character: s64) -> s
     return "";
 }
 
-append_references_in_file :: (builder: *String_Builder, path: string, text: string, word: string, first: *bool, include_declaration: bool) -> s64 {
+append_references_in_file :: (builder: *String_Builder, path: string, text: string, word: string, first: *bool, include_declaration: bool, decl_sites: [] Decl) -> s64 {
     is_word :: (c: u8) -> bool {
         return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z")
         || (c >= #char "0" && c <= #char "9") || c == #char "_";
@@ -414,8 +415,8 @@ append_references_in_file :: (builder: *String_Builder, path: string, text: stri
         && (i + word.count == text.count || !is_word(text[i + word.count])) {
             skip := false;
             if !include_declaration {
-                for g_decls {
-                    if it.name == word && it.path == path && it.line == line && it.col == col {
+                for decl_sites {
+                    if it.path == path && it.line == line && it.col == col {
                         skip = true;
                         break;
                     }
@@ -451,17 +452,6 @@ symbol_kind_number :: (kind: Decl_Kind) -> s32 {
     return 14;
 }
 
-completion_kind_number :: (kind: Decl_Kind) -> s32 {
-    if kind == {
-        case .PROCEDURE;   return 3;
-        case .STRUCT;      return 22;
-        case .ENUM;        return 13;
-        case .ENUM_MEMBER; return 20;
-        case .CONSTANT;    return 21;
-        case .VARIABLE;    return 6;
-    }
-    return 21;
-}
 
 append_location :: (builder: *String_Builder, decl: Decl) {
     print_to_builder(builder,

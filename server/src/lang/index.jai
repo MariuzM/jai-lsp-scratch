@@ -16,9 +16,12 @@ Decl :: struct {
     kind:      Decl_Kind;
     signature: string;
     module:    string;
+
+    completion_base: string;
 }
 
 g_decls: [..] Decl;
+g_decls_generation: s64;
 
 index_file :: (path: string, content: string, module := "") {
     remove_decls_for_file(path);
@@ -88,8 +91,16 @@ index_file :: (path: string, content: string, module := "") {
 remove_decls_for_file :: (path: string) {
     push_allocator(g_heap);
     for g_decls {
-        if it.path == path { free(it.name); free(it.path); free(it.signature); free(it.module); remove it; }
+        if it.path == path {
+            free(it.name);
+            free(it.path);
+            free(it.signature);
+            free(it.module);
+            free(it.completion_base);
+            remove it;
+        }
     }
+    g_decls_generation += 1;
 }
 
 find_decls :: (name: string) -> [..] Decl {
@@ -152,21 +163,12 @@ Ident_Span :: struct {
 
 semantic_spans :: (content: string) -> [..] Ident_Span {
     spans: [..] Ident_Span;
-
-    kinds: Table(string, s32);
-    init(*kinds, 8192);
-    for g_decls {
-        index := semantic_kind_index(it.kind);
-        if index == -1 { continue; }
-        existing, found := table_find(*kinds, it.name);
-        if found && existing <= index { continue; }
-        table_set(*kinds, it.name, index);
-    }
+    kinds := semantic_kinds();
 
     toks := collect_tokens(content);
     for toks {
         if it.type != .IDENT { continue; }
-        index, found := table_find(*kinds, it.name);
+        index, found := table_find(kinds, it.name);
         if !found { continue; }
         span: Ident_Span;
         span.line       = it.l0 - 1;
@@ -179,6 +181,25 @@ semantic_spans :: (content: string) -> [..] Ident_Span {
 }
 
 #scope_file
+
+g_kinds_cache: Table(string, s32);
+g_kinds_cache_generation: s64 = -1;
+
+semantic_kinds :: () -> *Table(string, s32) {
+    if g_kinds_cache_generation != g_decls_generation {
+        push_allocator(g_heap);
+        table_reset(*g_kinds_cache);
+        for g_decls {
+            index := semantic_kind_index(it.kind);
+            if index == -1 { continue; }
+            existing, found := table_find(*g_kinds_cache, it.name);
+            if found && existing <= index { continue; }
+            table_set(*g_kinds_cache, it.name, index);
+        }
+        g_kinds_cache_generation = g_decls_generation;
+    }
+    return *g_kinds_cache;
+}
 
 semantic_kind_index :: (kind: Decl_Kind) -> s32 {
     if kind == {
@@ -212,17 +233,21 @@ index_enum_members :: (path: string, toks: [] Tok, enum_keyword_index: s64, enum
         }
         if depth == 1 && t.type == .IDENT
         && (prev == cast(Token_Type) #char "{" || prev == cast(Token_Type) #char ";") {
+            sig  := tprint("%.%", enum_name, t.name);
+            base := completion_base_json(t.name, .ENUM_MEMBER, sig, module);
             push_allocator(g_heap);
             decl: Decl;
-            decl.name      = copy_string(t.name);
-            decl.path      = copy_string(path);
-            decl.line      = t.l0 - 1;
-            decl.col       = t.c0 - 1;
-            decl.name_end  = t.c0 - 1 + cast(s32) t.name.count;
-            decl.kind      = .ENUM_MEMBER;
-            decl.signature = sprint("%.%", enum_name, t.name);
-            decl.module    = copy_string(module);
+            decl.name            = copy_string(t.name);
+            decl.path            = copy_string(path);
+            decl.line            = t.l0 - 1;
+            decl.col             = t.c0 - 1;
+            decl.name_end        = t.c0 - 1 + cast(s32) t.name.count;
+            decl.kind            = .ENUM_MEMBER;
+            decl.signature       = copy_string(sig);
+            decl.module          = copy_string(module);
+            decl.completion_base = copy_string(base);
             array_add(*g_decls, decl);
+            g_decls_generation += 1;
         }
         prev = t.type;
         j += 1;
@@ -258,16 +283,39 @@ collect_tokens :: (content: string) -> [..] Tok {
 add_decl :: (path: string, content: string, t: Tok, kind: Decl_Kind, module: string) {
     line0 := t.l0 - 1;
     sig   := trim(get_line(content, line0));
+    base  := completion_base_json(t.name, kind, sig, module);
 
     push_allocator(g_heap);
     decl: Decl;
-    decl.name      = copy_string(t.name);
-    decl.path      = copy_string(path);
-    decl.line      = cast(s32) line0;
-    decl.col       = t.c0 - 1;
-    decl.name_end  = t.c0 - 1 + cast(s32) t.name.count;
-    decl.kind      = kind;
-    decl.signature = copy_string(sig);
-    decl.module    = copy_string(module);
+    decl.name            = copy_string(t.name);
+    decl.path            = copy_string(path);
+    decl.line            = cast(s32) line0;
+    decl.col             = t.c0 - 1;
+    decl.name_end        = t.c0 - 1 + cast(s32) t.name.count;
+    decl.kind            = kind;
+    decl.signature       = copy_string(sig);
+    decl.module          = copy_string(module);
+    decl.completion_base = copy_string(base);
     array_add(*g_decls, decl);
+    g_decls_generation += 1;
+}
+
+completion_base_json :: (name: string, kind: Decl_Kind, signature: string, module: string) -> string {
+    detail: string;
+    if module.count > 0 { detail = tprint("% \u2014 %", module, signature); }
+    else                { detail = signature; }
+    return tprint("\"label\":\"%\",\"kind\":%,\"detail\":\"%\"",
+        json_escape(name), completion_kind_number(kind), json_escape(detail));
+}
+
+completion_kind_number :: (kind: Decl_Kind) -> s32 {
+    if kind == {
+        case .PROCEDURE;   return 3;
+        case .STRUCT;      return 22;
+        case .ENUM;        return 13;
+        case .ENUM_MEMBER; return 20;
+        case .CONSTANT;    return 21;
+        case .VARIABLE;    return 6;
+    }
+    return 21;
 }
