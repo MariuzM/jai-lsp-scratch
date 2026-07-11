@@ -13,7 +13,10 @@ Jai itself, with a VS Code extension.
   / `#import` targets, and symbols from imported compiler modules (`trim`, `array_add`, ...)
 - **Find all references** — word-boundary search across the workspace, live editor buffers included
 - **Hover** — declaration signature and origin (`src/http.jai:168` or `Jai/String/module.jai:928`)
-- **Completion** — all indexed declarations, including imported modules
+- **Completion with auto-import** — all indexed declarations, including symbols from common
+  compiler modules you haven't imported yet: completions show their module (`Basic — print :: ...`)
+  and accepting one automatically inserts `#import "Basic";` after your existing imports (or at the
+  top of the file)
 - **Document / workspace symbols**
 - **Semantic highlighting** — identifiers known to the index are colored by what they are:
   `enum`, `struct`, `enumMember`, `function` — so a type like `Token_Type` gets your theme's enum

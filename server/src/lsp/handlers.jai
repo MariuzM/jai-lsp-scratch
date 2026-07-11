@@ -59,7 +59,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.13.0\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.14.0\"}}");
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -68,8 +68,10 @@ handle_shutdown :: (id: Json_Value) {
 }
 
 handle_initialized :: () {
-    if !g_root { return; }
-    scan_workspace();
+    if g_root {
+        scan_workspace();
+    }
+    index_common_modules();
     run_diagnostics();
 }
 
@@ -218,12 +220,34 @@ handle_hover :: (id: Json_Value, params: Json_Value) {
 }
 
 handle_completion :: (id: Json_Value, params: Json_Value) {
+    path     := request_path(params);
+    text, ok := get_text(path);
+    imports: [..] string;
+    insert_line := 0;
+    if ok {
+        imports     = file_imports(text);
+        insert_line = import_insert_line(text);
+    }
+
     builder: String_Builder;
     append(*builder, "[");
     for g_decls {
         if it_index > 0 { append(*builder, ","); }
-        print_to_builder(*builder, "{\"label\":\"%\",\"kind\":%,\"detail\":\"%\"}",
-            json_escape(it.name), completion_kind_number(it.kind), json_escape(it.signature));
+        needs_import := false;
+        if it.module.count > 0 {
+            imported := false;
+            for existing: imports  if existing == it.module then imported = true;
+            needs_import = !imported;
+        }
+        if needs_import {
+            print_to_builder(*builder,
+                "{\"label\":\"%\",\"kind\":%,\"detail\":\"% — %\",\"additionalTextEdits\":[{\"range\":{\"start\":{\"line\":%,\"character\":0},\"end\":{\"line\":%,\"character\":0}},\"newText\":\"#import \\\"%\\\";\\n\"}]}",
+                json_escape(it.name), completion_kind_number(it.kind), json_escape(it.module), json_escape(it.signature),
+                insert_line, insert_line, json_escape(it.module));
+        } else {
+            print_to_builder(*builder, "{\"label\":\"%\",\"kind\":%,\"detail\":\"%\"}",
+                json_escape(it.name), completion_kind_number(it.kind), json_escape(it.signature));
+        }
     }
     append(*builder, "]");
     respond(id, builder_to_string(*builder));

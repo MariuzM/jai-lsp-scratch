@@ -37,6 +37,49 @@ close_doc :: (path: string) {
     array_unordered_remove_by_index(*g_docs, index);
 }
 
+COMMON_MODULES :: string.["Basic", "String", "Math", "File", "File_Utilities", "File_Watcher", "Hash_Table", "Hash", "Sort", "Random", "Thread", "Process", "POSIX", "Socket", "System", "Unicode", "Bit_Operations", "Command_Line", "Atomics", "Pool", "Base64"];
+
+index_common_modules :: () {
+    for COMMON_MODULES  index_module(it);
+}
+
+file_imports :: (text: string) -> [..] string {
+    imports: [..] string;
+    remaining := text;
+    while 1 {
+        index := find_index_from_left(remaining, "#import");
+        if index == -1 { break; }
+        remaining = slice(remaining, index + 7, remaining.count - index - 7);
+        k := 0;
+        while k < remaining.count && remaining[k] == #char " " { k += 1; }
+        if k >= remaining.count || remaining[k] != #char "\"" { continue; }
+        k += 1;
+        start := k;
+        while k < remaining.count && remaining[k] != #char "\"" && remaining[k] != #char "\n" { k += 1; }
+        if k >= remaining.count || remaining[k] != #char "\"" { continue; }
+        array_add(*imports, slice(remaining, start, k - start));
+    }
+    return imports;
+}
+
+import_insert_line :: (text: string) -> s64 {
+    line        := 0;
+    last_import := -1;
+    start       := 0;
+    i           := 0;
+    while i <= text.count {
+        if i == text.count || text[i] == #char "\n" {
+            candidate := trim(slice(text, start, i - start));
+            if starts_with(candidate, "#import") { last_import = line; }
+            line += 1;
+            start = i + 1;
+        }
+        i += 1;
+    }
+    if last_import >= 0 { return last_import + 1; }
+    return 0;
+}
+
 scan_workspace :: () {
     filenames: [..] string;
     visit_files(g_root, true, *filenames, visit_jai_files);
@@ -205,7 +248,7 @@ index_module :: (name: string) {
     base   := modules_root();
     single := tprint("%/%.jai", base, name);
     if file_exists(single) {
-        index_module_file(single);
+        index_module_file(single, name);
         log_err("indexed module % (single file)", name);
         return;
     }
@@ -216,16 +259,16 @@ index_module :: (name: string) {
     visit_files(dir, true, *filenames, visit_jai_files);
     count := 0;
     for filenames {
-        index_module_file(it);
+        index_module_file(it, name);
         count += 1;
     }
     log_err("indexed module % (% files)", name, count);
 }
 
-index_module_file :: (path: string) {
+index_module_file :: (path: string, module: string) {
     content, ok := read_entire_file(path);
     if !ok { return; }
-    index_file(path, content);
+    index_file(path, content, module);
 }
 
 hex_digit :: (c: u8) -> s32 {

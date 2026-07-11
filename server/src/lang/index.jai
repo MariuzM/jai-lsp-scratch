@@ -15,11 +15,12 @@ Decl :: struct {
     name_end:  s32;
     kind:      Decl_Kind;
     signature: string;
+    module:    string;
 }
 
 g_decls: [..] Decl;
 
-index_file :: (path: string, content: string) {
+index_file :: (path: string, content: string, module := "") {
     remove_decls_for_file(path);
 
     toks := collect_tokens(content);
@@ -73,10 +74,10 @@ index_file :: (path: string, content: string) {
                         else if n == cast(Token_Type) #char "("                 { kind = .PROCEDURE; }
                         else if n == .KEYWORD_INLINE || n == .KEYWORD_NO_INLINE { kind = .PROCEDURE; }
                     }
-                    add_decl(path, content, t, kind);
-                    if kind == .ENUM { index_enum_members(path, toks, i + 3, t.name); }
+                    add_decl(path, content, t, kind, module);
+                    if kind == .ENUM { index_enum_members(path, toks, i + 3, t.name, module); }
                 } else {
-                    add_decl(path, content, t, .VARIABLE);
+                    add_decl(path, content, t, .VARIABLE, module);
                 }
             }
         }
@@ -87,7 +88,7 @@ index_file :: (path: string, content: string) {
 remove_decls_for_file :: (path: string) {
     push_allocator(g_heap);
     for g_decls {
-        if it.path == path { free(it.name); free(it.path); free(it.signature); remove it; }
+        if it.path == path { free(it.name); free(it.path); free(it.signature); free(it.module); remove it; }
     }
 }
 
@@ -189,7 +190,7 @@ semantic_kind_index :: (kind: Decl_Kind) -> s32 {
     return -1;
 }
 
-index_enum_members :: (path: string, toks: [] Tok, enum_keyword_index: s64, enum_name: string) {
+index_enum_members :: (path: string, toks: [] Tok, enum_keyword_index: s64, enum_name: string, module: string) {
     j := enum_keyword_index;
     while j < toks.count {
         t := toks[j].type;
@@ -220,6 +221,7 @@ index_enum_members :: (path: string, toks: [] Tok, enum_keyword_index: s64, enum
             decl.name_end  = t.c0 - 1 + cast(s32) t.name.count;
             decl.kind      = .ENUM_MEMBER;
             decl.signature = sprint("%.%", enum_name, t.name);
+            decl.module    = copy_string(module);
             array_add(*g_decls, decl);
         }
         prev = t.type;
@@ -253,7 +255,7 @@ collect_tokens :: (content: string) -> [..] Tok {
     return toks;
 }
 
-add_decl :: (path: string, content: string, t: Tok, kind: Decl_Kind) {
+add_decl :: (path: string, content: string, t: Tok, kind: Decl_Kind, module: string) {
     line0 := t.l0 - 1;
     sig   := trim(get_line(content, line0));
 
@@ -266,5 +268,6 @@ add_decl :: (path: string, content: string, t: Tok, kind: Decl_Kind) {
     decl.name_end  = t.c0 - 1 + cast(s32) t.name.count;
     decl.kind      = kind;
     decl.signature = copy_string(sig);
+    decl.module    = copy_string(module);
     array_add(*g_decls, decl);
 }
