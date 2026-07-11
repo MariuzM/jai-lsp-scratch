@@ -53,6 +53,7 @@ format_lines :: (text: string) -> string {
         line_index += 1;
     }
 
+    lines = collapse_short_blocks(lines);
     wrap_inline_controls(lines);
     normalize_spaces(lines);
 
@@ -507,6 +508,7 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
 
     content := trim(s);
     is_case := is_case_line(content);
+    is_then := (starts_with(content, "if ") || starts_with(content, "else")) && has_then_keyword(content);
     semis   := 0;
 
     k := 0;
@@ -571,7 +573,7 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
             case #char "]"; paren -= 1;
         }
 
-        if c == #char ";" && curly <= 0 && paren <= 0 {
+        if c == #char ";" && curly <= 0 && paren <= 0 && !is_then {
             semis += 1;
             if !(is_case && semis == 1) {
                 m := k + 1;
@@ -599,6 +601,7 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
     return -1;
 }
 
+COLLAPSE_WIDTH :: 100;
 
 wrap_inline_controls :: (lines: [] Out_Line) {
     for * lines {
@@ -756,6 +759,78 @@ collapse_whitespace :: (s: string) -> string {
     return builder_to_string(*builder);
 }
 
+collapse_short_blocks :: (lines: [..] Out_Line) -> [..] Out_Line {
+    result: [..] Out_Line;
+    i := 0;
+    while i < lines.count {
+        collapsed, consumed := try_collapse(lines, i);
+        if consumed > 0 {
+            array_add(*result, collapsed);
+            i += consumed;
+        } else {
+            array_add(*result, lines[i]);
+            i += 1;
+        }
+    }
+    return result;
+}
+
+try_collapse :: (lines: [] Out_Line, i: s64) -> Out_Line, s64 {
+    empty: Out_Line;
+    header := lines[i];
+    if header.protected { return empty, 0; }
+    c := trim(header.text);
+    if c.count < 4 { return empty, 0; }
+    if c[c.count - 1] != #char "{" { return empty, 0; }
+    if !starts_with(c, "if ") && !starts_with(c, "else ") && c != "else {" { return empty, 0; }
+    head := strip_trailing(slice(c, 0, c.count - 1));
+
+    stmts: [..] string;
+    j := i + 1;
+    while j < lines.count {
+        b := lines[j];
+        if b.protected { return empty, 0; }
+        bc := trim(b.text);
+        if bc.count == 0 { return empty, 0; }
+        if bc == "}" { break; }
+        if b.indent != header.indent + 1 { return empty, 0; }
+        if bc[bc.count - 1] != #char ";" { return empty, 0; }
+        if !simple_statement(bc) { return empty, 0; }
+        array_add(*stmts, bc);
+        j += 1;
+    }
+    if j >= lines.count || stmts.count == 0 { return empty, 0; }
+    if lines[j].indent != header.indent || lines[j].protected { return empty, 0; }
+
+    builder: String_Builder;
+    for 1..header.indent { append(*builder, "    "); }
+    append(*builder, head);
+    append(*builder, " { ");
+    for stmts {
+        if it_index > 0 { append(*builder, " "); }
+        append(*builder, it);
+    }
+    append(*builder, " }");
+    text := builder_to_string(*builder);
+    if text.count > COLLAPSE_WIDTH { return empty, 0; }
+
+    out: Out_Line;
+    out.text   = text;
+    out.indent = header.indent;
+    return out, j - i + 1;
+}
+
+simple_statement :: (s: string) -> bool {
+    if is_case_line(s) { return false; }
+    if starts_with(s, "if ") || starts_with(s, "for ") || starts_with(s, "while ") || starts_with(s, "else") { return false; }
+    for i: 0..s.count-1 {
+        c := s[i];
+        if c == #char "{" || c == #char "}" { return false; }
+        if c == #char "/" && i + 1 < s.count && (s[i+1] == #char "/" || s[i+1] == #char "*") { return false; }
+    }
+    return true;
+}
+
 Chain_Kind :: enum {
     NONE;
     IF;
@@ -790,6 +865,7 @@ parse_chain_line :: (line: Out_Line) -> Chain_Line {
         k += 3;
     }
     if kind == .NONE { return result; }
+    if has_then_keyword(slice(t, line.indent * 4, t.count - line.indent * 4)) { return result; }
 
     stmt: string;
     cond: string;
@@ -990,6 +1066,19 @@ Pb_Entry :: struct {
 is_word_char :: (c: u8) -> bool {
     return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z")
     || (c >= #char "0" && c <= #char "9") || c == #char "_";
+}
+
+has_then_keyword :: (content: string) -> bool {
+    i := 0;
+    while i + 4 <= content.count {
+        if slice(content, i, 4) == "then"
+        && (i == 0 || !is_word_char(content[i-1]))
+        && (i + 4 == content.count || !is_word_char(content[i+4])) {
+            return true;
+        }
+        i += 1;
+    }
+    return false;
 }
 
 is_case_line :: (content: string) -> bool {
