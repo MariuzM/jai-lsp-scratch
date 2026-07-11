@@ -89,7 +89,8 @@ handle :: (res: *Response, v: Json_Value) {
 
 ### More examples
 
-Single-line `if` bodies get braces so the body is visually delimited:
+Single-line `if` bodies get the `then` keyword so the boundary between condition and body is
+explicit:
 
 ```jai
 // before
@@ -98,9 +99,9 @@ if !ok  return;
 if cond  a += 1; b += 1;    // trap: b += 1 runs unconditionally!
 
 // after
-if !last_closed_transparent { opaque_depth -= 1; }
-if !ok { return; }
-if cond { a += 1; }
+if !last_closed_transparent then opaque_depth -= 1;
+if !ok then return;
+if cond then a += 1;
 b += 1;
 ```
 
@@ -127,13 +128,14 @@ your explicit "leave this line alone" marker:
 if x > 5 then y += 1; z += 1;    // stays on one line; note z += 1 is NOT inside the if
 ```
 
-`if` / `else if` / `else` chains align their blocks after the longest condition:
+Unbraced chains become `then` chains; chains written with braces keep them and align their blocks
+after the longest condition:
 
 ```jai
 parse_digit :: (c: u8) -> s32 {
-    if c >= #char "0" && c <= #char "9"      { return c - #char "0"; }
-    else if c >= #char "a" && c <= #char "f" { return c - #char "a" + 10; }
-    else                                     { return -1; }
+    if c >= #char "0" && c <= #char "9" then return c - #char "0";
+    else if c >= #char "a" && c <= #char "f" then return c - #char "a" + 10;
+    else return -1;
 }
 
 resolve :: (link: string, path: string) -> string {
@@ -176,8 +178,9 @@ age, has_age := json_get(root, "age");
 - One statement per line: code after an opening `{` moves to the next line (when the block spans
   multiple lines), and multiple `;`-terminated statements on one line are split apart — this also
   disambiguates traps like `if cond  a; b;` where `b;` runs unconditionally
-- Single-line `if` / `else if` / `else` bodies are wrapped in braces: `if cond  stmt;` becomes
-  `if cond { stmt; }` so the body is visually delimited
+- Single-line `if` / `else if` bodies get the `then` keyword: `if cond  stmt;` becomes
+  `if cond then stmt;` (bare `else  stmt;` becomes `else stmt;`); single-line `while` / `for`
+  bodies are braced
 - Short `if` / `else` bodies collapse to one line (`if cond { a += 1; b += 1; }`) when the result
   fits 100 columns and the body is simple statements only; longer or complex bodies stay multi-line
 - `if` / `else` lines using the `then` keyword are never split, wrapped, or restructured — only

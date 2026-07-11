@@ -606,24 +606,25 @@ COLLAPSE_WIDTH :: 100;
 wrap_inline_controls :: (lines: [] Out_Line) {
     for * lines {
         if it.protected { continue; }
-        chain := parse_chain_line(it);
-        stmt:   string;
+        body:   string;
         prefix: string;
+        chain := parse_chain_line(it);
         if chain.kind != .NONE {
             if chain.stmt[0] == #char "{" { continue; }
+            if chain.kind == .ELSE { body = chain.stmt; }
+            else                   { body = tprint("then %", chain.stmt); }
             prefix = chain.prefix;
-            stmt   = chain.stmt;
         } else {
             loop := parse_loop_line(it);
             if !loop.ok || loop.rest[0] == #char "{" { continue; }
             prefix = loop.name;
-            stmt   = loop.rest;
+            body   = brace_statement(loop.rest);
         }
         builder: String_Builder;
         for 1..it.indent { append(*builder, "    "); }
         append(*builder, prefix);
         append(*builder, " ");
-        append(*builder, brace_statement(stmt));
+        append(*builder, body);
         it.text = builder_to_string(*builder);
     }
 }
