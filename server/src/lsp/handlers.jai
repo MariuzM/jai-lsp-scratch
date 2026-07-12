@@ -59,7 +59,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.16.1\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.16.2\"}}");
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -136,11 +136,24 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
     word, dotted := word_at(text, line, character);
     if !word { respond(id, "null"); return; }
 
+    if !dotted {
+        local_found, local_hit := find_scoped_local(text, word, cast(s32) line, cast(s32) character);
+        if local_found {
+            respond(id, tprint("[{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}]",
+                path_to_uri(path), local_hit.line, local_hit.col, local_hit.line, local_hit.name_end));
+            return;
+        }
+    }
+
     matches := find_decls(word);
     if dotted {
         members: [..] Decl;
         for matches if it.kind == .ENUM_MEMBER array_add(*members, it);
         if members.count > 0 { matches = members; }
+    } else {
+        same_file: [..] Decl;
+        for matches if it.path == path array_add(*same_file, it);
+        if same_file.count > 0 { matches = same_file; }
     }
     if matches.count > 0 {
         builder: String_Builder;
@@ -206,6 +219,17 @@ handle_hover :: (id: Json_Value, params: Json_Value) {
     if !ok || line < 0 { respond(id, "null"); return; }
     word, dotted := word_at(text, line, character);
     if !word { respond(id, "null"); return; }
+
+    if !dotted {
+        local_found, local_hit := find_scoped_local(text, word, cast(s32) line, cast(s32) character);
+        if local_found {
+            sig   := trim(get_line(text, local_hit.line));
+            value := tprint("```jai\n%\n```\n\n%:%", sig, display_path(path), local_hit.line + 1);
+            respond(id, tprint("{\"contents\":{\"kind\":\"markdown\",\"value\":\"%\"}}", json_escape(value)));
+            return;
+        }
+    }
+
     matches := find_decls(word);
     if dotted {
         members: [..] Decl;

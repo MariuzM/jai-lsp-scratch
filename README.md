@@ -328,11 +328,10 @@ Concrete changes to come back to, roughly in order of impact.
 
 **Resolution quality**
 
-- [ ] **Scope-aware definition.** Semantic highlighting is scope-aware (file-local declarations
-      override workspace-wide name matches, and locals/parameters suppress coloring while in
-      scope), but go-to-definition is still name-based: a local sharing a name with an indexed
-      symbol resolves to all candidates. The same scope tracking should rank the nearest
-      enclosing declaration first.
+- [x] **Scope-aware lookups.** Semantic highlighting, go-to-definition, and hover are scope-aware:
+      file-local declarations override workspace-wide name matches, and locals/parameters shadow
+      indexed symbols while in scope — so a variable named the same as a procedure elsewhere
+      resolves to the local declaration, not all candidates.
 - [ ] **Platform-aware definitions.** Symbols defined per-OS (`generated_linux.jai`,
       `generated_windows.jai`, ...) return all variants; the current platform's file should rank
       first.

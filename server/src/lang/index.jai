@@ -139,6 +139,62 @@ find_local_decl_sites :: (content: string, name: string) -> [..] Local_Hit {
     return hits;
 }
 
+find_scoped_local :: (content: string, name: string, line: s32, col: s32) -> bool, Local_Hit {
+    result: Local_Hit;
+    toks := collect_tokens(content);
+
+    Scope_Entry :: struct {
+        depth: s64;
+        hit:   Local_Hit;
+    }
+    stack: [..] Scope_Entry;
+
+    curly := 0;
+    paren := 0;
+    for i: 0..toks.count-1 {
+        t := toks[i];
+        t_line := t.l0 - 1;
+        t_col  := t.c0 - 1;
+        if t_line > line || (t_line == line && t_col > col) { break; }
+
+        if t.type == {
+            case cast(Token_Type) #char "{"; curly += 1;
+            case .BEGIN_STRUCT_LITERAL;      curly += 1;
+            case cast(Token_Type) #char "}";
+                curly -= 1;
+                if curly < 0 { curly = 0; }
+                while stack.count > 0 && stack[stack.count - 1].depth > curly { stack.count -= 1; }
+            case cast(Token_Type) #char "("; paren += 1;
+            case cast(Token_Type) #char ")";
+                paren -= 1;
+                if paren < 0 { paren = 0; }
+        }
+        if t.type != .IDENT || t.name != name { continue; }
+        if i > 0 && toks[i-1].type == cast(Token_Type) #char "." { continue; }
+
+        j := i;
+        while j + 2 < toks.count && toks[j+1].type == cast(Token_Type) #char "," && toks[j+2].type == .IDENT { j += 2; }
+        is_decl := j + 1 < toks.count && toks[j+1].type == cast(Token_Type) #char ":"
+                && !(j + 2 < toks.count && toks[j+2].type == cast(Token_Type) #char ":");
+        if !is_decl { continue; }
+
+        depth := curly;
+        if paren > 0 { depth = curly + 1; }
+        p := i - 1;
+        if p >= 0 && toks[p].type == cast(Token_Type) #char "*" { p -= 1; }
+        if p >= 0 && toks[p].type == .KEYWORD_FOR { depth = curly + 1; }
+
+        entry: Scope_Entry;
+        entry.depth        = depth;
+        entry.hit.line     = t_line;
+        entry.hit.col      = t_col;
+        entry.hit.name_end = t_col + cast(s32) name.count;
+        array_add(*stack, entry);
+    }
+    if stack.count == 0 { return false, result; }
+    return true, stack[stack.count - 1].hit;
+}
+
 get_line :: (content: string, line0: s64) -> string {
     start   := 0;
     current := 0;
