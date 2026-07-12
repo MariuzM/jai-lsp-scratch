@@ -213,10 +213,19 @@ collapse_whitespace :: (s: string) -> string {
             k = m;
             continue;
         }
+        if c == #char "]" && k + 1 < s.count && is_array_element_start(s[k+1]) {
+            append(*builder, "] ");
+            k += 1;
+            continue;
+        }
         append(*builder, c);
         k += 1;
     }
     return builder_to_string(*builder);
+}
+
+is_array_element_start :: (c: u8) -> bool {
+    return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || c == #char "_";
 }
 
 hoist_imports :: (lines: [..] Out_Line) -> [..] Out_Line {

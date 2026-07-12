@@ -99,17 +99,46 @@ pthread_setname_np :: (name: *u8) -> s32                         #foreign libc;
 
 ### 5. Struct and enum field alignment
 
-`name: type;` fields align on the type; `name : type` is normalized to `name: type`.
+`name: type;` fields align on the type; `name : type` is normalized to `name: type`. Array types
+line up with the rest regardless of their marker (`[]`, `[..]`, `[N]`).
 
 ```jai
-Pair :: struct {
-    key:   string;
-    value: string;
-    hits:  s64;
+Diag :: struct {
+    path:   string;
+    names:  [..] string;
+    line:   s32;
+    tags:   [] Tag;
+    counts: [4] u8;
 }
 ```
 
-### 6. Variable declaration alignment
+### 6. Array type spacing
+
+An array marker gets one space before its element type, so `[..]string` becomes `[..] string`.
+Works for slices (`[]`), resizable (`[..]`), and fixed (`[N]`, including computed sizes). Array
+*indexing* is never touched — `arr[i]`, `grid[i][j]`, and `arr[i].field` are left exactly as-is,
+and the rule skips string literals and comments.
+
+Before:
+
+```jai
+names: [..]string;
+tags:  []Tag;
+sizes: [2 * N]u8;
+```
+
+After:
+
+```jai
+names: [..] string;
+tags:  [] Tag;
+sizes: [2 * N] u8;
+```
+
+Pointer element types stay attached (`[..]*Node`), since a `*` after `]` is ambiguous with
+multiplication.
+
+### 7. Variable declaration alignment
 
 `:=` declarations align, including multi-return lvalues.
 
@@ -119,7 +148,7 @@ password     := json_get_string(root, "password");
 age, has_age := json_get(root, "age");
 ```
 
-### 7. Assignment alignment
+### 8. Assignment alignment
 
 Plain `=` assignments align on the `=`.
 
@@ -129,7 +158,7 @@ res.content_type = "application/json";
 res.body         = body;
 ```
 
-### 8. Inline `case` alignment
+### 9. Inline `case` alignment
 
 Inline case bodies align after the longest case label.
 
@@ -143,7 +172,7 @@ describe :: (t: Token_Kind) -> string {
 }
 ```
 
-### 9. Braced `if` / `else` chain alignment
+### 10. Braced `if` / `else` chain alignment
 
 Single-line braced chains align their blocks one space after the longest condition.
 
@@ -155,7 +184,7 @@ resolve :: (link: string, path: string) -> string {
 }
 ```
 
-### 10. Inline `if` with `return` / `break` / `continue`
+### 11. Inline `if` with `return` / `break` / `continue`
 
 When the body of an inline `if` is a jump statement, it stays bare (no `then`, no braces) and
 consecutive guards align after the longest condition. A stray `then` before a jump (including ones
@@ -183,7 +212,7 @@ format_bytes :: (b: float64) -> string {
 }
 ```
 
-### 11. `then` for other inline `if` bodies
+### 12. `then` for other inline `if` bodies
 
 Any other single-line `if` body gets the `then` keyword so the condition/body boundary is explicit.
 A second statement after the `;` always moves to its own line, because the `if` only governs the
@@ -204,7 +233,7 @@ if x > 5 then y += 1;
 z += 1;
 ```
 
-### 12. Braces for inline loops
+### 13. Braces for inline loops
 
 Single-line `while` / `for` bodies are wrapped in braces. Write the braces yourself and the body can
 hold any number of statements inline — it is kept as-is. Without braces the loop only governs the
@@ -227,7 +256,7 @@ for 1..count { advance(); }
 emit(it);  // trap: emit(it) runs AFTER the loop, once
 ```
 
-### 13. Imports move to the top
+### 14. Imports move to the top
 
 All top-level `#import` and `#load` statements are hoisted to the top of the file (after a leading
 file comment, if any), in their original order, followed by a blank line. Imports inside `#string`
@@ -255,7 +284,7 @@ main :: () {
 }
 ```
 
-### 14. HTML here-string indentation
+### 15. HTML here-string indentation
 
 The content of `#string HTML` here-strings is re-indented by tag nesting depth — indentation only,
 the markup itself is never changed. Void tags, self-closing tags, doctype, and comments don't open a
@@ -296,7 +325,7 @@ PAGE :: #string HTML
 HTML
 ```
 
-### 15. Never touched
+### 16. Never touched
 
 - Anything inside strings, `#string` here-strings (except `#string HTML` indentation, above), and
   block comments

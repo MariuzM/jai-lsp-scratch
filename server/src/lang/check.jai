@@ -17,7 +17,8 @@ run_diagnostics :: () {
 
     result, output, error_output := run_command(
         g_compiler, g_entry_file, "-exe", "check_bin", "-output_path", CHECK_OUTPUT_DIR,
-        capture_and_return_output = true, timeout_ms = 30000);
+        capture_and_return_output = true, timeout_ms = 30000
+    );
 
     combined := tprint("%\n%", output, error_output);
     diags    := parse_compiler_output(combined);
