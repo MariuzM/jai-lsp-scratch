@@ -114,10 +114,10 @@ Diag :: struct {
 
 ### 6. Array type spacing
 
-An array marker gets one space before its element type, so `[..]string` becomes `[..] string`.
-Works for slices (`[]`), resizable (`[..]`), and fixed (`[N]`, including computed sizes). Array
-*indexing* is never touched — `arr[i]`, `grid[i][j]`, and `arr[i].field` are left exactly as-is,
-and the rule skips string literals and comments.
+An array marker gets one space before its element type, so `[..]string` becomes `[..] string`. Works
+for slices (`[]`), resizable (`[..]`), and fixed (`[N]`, including computed sizes). Array _indexing_
+is never touched — `arr[i]`, `grid[i][j]`, and `arr[i].field` are left exactly as-is, and the rule
+skips string literals and comments.
 
 Before:
 
@@ -137,6 +137,9 @@ sizes: [2 * N] u8;
 
 Pointer element types stay attached (`[..]*Node`), since a `*` after `]` is ambiguous with
 multiplication.
+
+> **Note:** I personally lean toward no gap here (`[..]string`) — I'm used to TypeScript, where the
+> type reads as one token. But `[..] string` is in Jai source code most of the time.
 
 ### 7. Variable declaration alignment
 
