@@ -44,7 +44,7 @@ main :: () {
 }
 
 stderr_logger :: (message: string, data: *void, info: Log_Info) {
-    if !message.count { return; }
+    if !message.count return;
     write_all(2, message);
     if message[message.count - 1] != #char "\n" { write_all(2, "\n"); }
 }
