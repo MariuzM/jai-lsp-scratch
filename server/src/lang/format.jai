@@ -131,16 +131,20 @@ format_lines :: (text: string) -> string {
         line_index += 1;
     }
 
+    strip_then_before_jump(lines);
     wrap_inline_controls(lines);
     normalize_spaces(lines);
+    lines = hoist_imports(lines);
     lines = ensure_import_separation(lines);
 
     align_groups(lines, .{parse_const_line, ":: ", false});
+    align_groups(lines, .{parse_foreign_line, "", false});
     align_groups(lines, .{parse_field_line, ":", true});
     align_groups(lines, .{parse_assign_line, "= ", false});
     align_groups(lines, .{parse_decl_line, ":= ", false});
     align_groups(lines, .{parse_case_line, "", false});
     align_if_else_chains(lines);
+    align_groups(lines, .{parse_if_return_line, "", false});
 
     last := lines.count - 1;
     while last >= 0 && !lines[last].protected && lines[last].text.count == 0 { last -= 1; }
@@ -215,6 +219,38 @@ collapse_whitespace :: (s: string) -> string {
     return builder_to_string(*builder);
 }
 
+hoist_imports :: (lines: [..] Out_Line) -> [..] Out_Line {
+    header := 0;
+    while header < lines.count {
+        line := lines[header];
+        if !line.protected {
+            content := trim(line.text);
+            if content.count > 0 && !starts_with(content, "//") && !starts_with(content, "/*") { break; }
+        }
+        header += 1;
+    }
+
+    imports: [..] Out_Line;
+    rest:    [..] Out_Line;
+    for i: header..lines.count-1 {
+        line := lines[i];
+        if !line.protected && line.indent == 0 && is_import_line(line.text) {
+            array_add(*imports, line);
+            blank: Out_Line;
+            array_add(*rest, blank);
+        } else {
+            array_add(*rest, line);
+        }
+    }
+    if imports.count == 0 { return lines; }
+
+    result: [..] Out_Line;
+    for i: 0..header-1 { array_add(*result, lines[i]); }
+    for imports { array_add(*result, it); }
+    for rest    { array_add(*result, it); }
+    return result;
+}
+
 ensure_import_separation :: (lines: [..] Out_Line) -> [..] Out_Line {
     result: [..] Out_Line;
     for i: 0..lines.count-1 {
@@ -233,7 +269,7 @@ ensure_import_separation :: (lines: [..] Out_Line) -> [..] Out_Line {
 
 is_import_line :: (text: string) -> bool {
     content := trim(text);
-    if starts_with(content, "#import") { return true; }
+    if starts_with(content, "#import") || starts_with(content, "#load") { return true; }
     found, _ := contains(content, ":: #import");
     return found;
 }

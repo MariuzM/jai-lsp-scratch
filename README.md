@@ -10,158 +10,130 @@ Jai itself, with a VS Code extension.
 ## Features
 
 - **Go to definition** — workspace symbols, locals and parameters, enum members (`.MEMBER`), `#load`
-  / `#import` targets, and symbols from imported compiler modules (`trim`, `array_add`, ...)
+  / `#import` targets, and symbols from imported compiler modules
 - **Find all references** — word-boundary search across the workspace, live editor buffers included
-- **Hover** — declaration signature and origin (`src/http.jai:168` or `Jai/String/module.jai:928`)
-- **Completion with auto-import** — all indexed declarations, including symbols from common compiler
-  modules you haven't imported yet: completions show their module (`Basic — print :: ...`) and
-  accepting one automatically inserts `#import "Basic";` after your existing imports (or at the top
-  of the file)
+- **Hover** — declaration signature and origin
+- **Completion with auto-import** — accepting a symbol from a module you haven't imported inserts
+  the `#import` line for you
 - **Document / workspace symbols**
-- **Semantic highlighting** — identifiers known to the index are colored by what they are: `enum`,
-  `struct`, `enumMember`, `function` — so a type like `Token_Type` gets your theme's enum color at
-  every use site, not just its declaration
-- **Diagnostics** — runs the Jai compiler on your entry file (auto-detected via `main ::`) on save
-  and surfaces errors inline
-- **Formatter** — see below
+- **Semantic highlighting** — identifiers colored by what they are (`enum`, `struct`, `enumMember`,
+  `function`) at every use site
+- **Diagnostics** — runs the Jai compiler on your entry file on save and surfaces errors inline
+- **Formatter** — every rule shown below, with real output
 
-The server is index-based (a fast lexer pass, no type inference), so it is instant but approximate:
-symbols with the same name in multiple enums/files resolve to all candidates.
+The server is index-based (a fast lexer pass, no type inference), so it is instant but approximate.
 
 ## Formatter
 
-The formatter follows the conventions used in the Jai compiler's own `modules/` sources (the
-alignment rules were derived by measuring them: 55% of constant groups, 64% of field groups, and 62%
-of inline-case groups there are column-aligned, always padded to the longest name + 1 space).
+Every example below is actual formatter output. All alignment rules work on groups of 2+ consecutive
+matching lines at the same indent; a blank line (or any non-matching line) breaks the group, so use
+one to keep two neighbors from aligning together.
+
+### 1. Indentation and statement layout
+
+4-space indentation derived from brace/paren/bracket nesting. Tabs and sloppy leading whitespace are
+replaced; trailing whitespace is stripped; blank-line runs collapse to one.
 
 Before:
 
 ```jai
-WORKER_COUNT :: 64;
-MAX_BODY_SIZE :: 96 * 1024 * 1024;
-libvips :: #library "../lib/libvips";
-vips_error_clear :: () #foreign libvips;
-vips_image_get_width :: (image: *VipsImage) -> s32 #foreign libvips;
-
-
-
-Pair :: struct {
-    key: string;
-    value: string;
-}
-
 handle :: (res: *Response, v: Json_Value) {
 		data:= cast(*void) input.data;
 size := cast(u64) input.count;
 res.status = status;
     res.content_type = "application/json";
         res.body = body;
-if v.kind == {
-case .STRING; kind_ok = v.kind == .STRING;
-case .INTEGER; kind_ok = v.kind == .INTEGER;
-}
 }
 ```
 
 After:
 
 ```jai
-WORKER_COUNT         :: 64;
-MAX_BODY_SIZE        :: 96 * 1024 * 1024;
-libvips              :: #library "../lib/libvips";
-vips_error_clear     :: () #foreign libvips;
-vips_image_get_width :: (image: *VipsImage) -> s32 #foreign libvips;
-
-Pair :: struct {
-    key:   string;
-    value: string;
-}
-
 handle :: (res: *Response, v: Json_Value) {
     data := cast(*void) input.data;
     size := cast(u64) input.count;
     res.status       = status;
     res.content_type = "application/json";
     res.body         = body;
-    if v.kind == {
-        case .STRING;  kind_ok = v.kind == .STRING;
-        case .INTEGER; kind_ok = v.kind == .INTEGER;
-    }
 }
 ```
 
-### More examples
+### 2. Whitespace cleanup
 
-Single-line `if` bodies get the `then` keyword so the boundary between condition and body is
-explicit:
+Runs of spaces inside code collapse to a single space; trailing `//` comments get exactly two
+spaces. Strings, comment text, and here-strings are untouched.
+
+Before:
 
 ```jai
-// before
-if !last_closed_transparent  opaque_depth -= 1;
-if !ok  return;
-if cond  a += 1; b += 1;    // trap: b += 1 runs unconditionally!
-
-// after
-if !last_closed_transparent then opaque_depth -= 1;
-if !ok then return;
-if cond then a += 1;
-b += 1;
+x   :=  f(a,    b);
+y := g(c);     // trailing comment
 ```
 
-Short `if` / `else` bodies collapse onto one line when the result is simple and fits 100 columns:
+After:
 
 ```jai
-// before
-if cond {
-    a += 1;
-    b += 1;
-}
-
-// after
-if cond { a += 1; b += 1; }
+x := f(a, b);
+y := g(c);  // trailing comment
 ```
 
-Bodies stay multi-line when the collapsed form would exceed 100 characters, or when they contain
-nested blocks, control flow, comments, or blank lines.
+### 3. Constant alignment
 
-A second statement after an inline `if` always moves to its own line, because in Jai the `if` (with
-or without `then`) governs only the first statement — the split makes the real behavior visible:
+Consecutive `::` constants align on the `::`, padded to the longest name + 1.
 
 ```jai
-// before
-if x > 5 then y += 1; z += 1;    // z += 1 runs ALWAYS, even when x <= 5
-
-// after
-if x > 5 then y += 1;
-z += 1;
+WORKER_COUNT  :: 64;
+MAX_BODY_SIZE :: 96 * 1024 * 1024;
+DEFAULT_PORT  :: 8080;
 ```
 
-Unbraced chains become `then` chains; chains written with braces keep them and align their blocks
-after the longest condition:
+### 4. Foreign binding alignment
+
+Foreign procedure declarations align twice: on the `::` and on the trailing `#foreign` directive.
 
 ```jai
-parse_digit :: (c: u8) -> s32 {
-    if c >= #char "0" && c <= #char "9" then return c - #char "0";
-    else if c >= #char "a" && c <= #char "f" then return c - #char "a" + 10;
-    else return -1;
-}
+pthread_self       :: () -> pthread_t                            #foreign libc;
+pthread_getname_np :: (p: pthread_t, name: *u8, len: u64) -> s32 #foreign libc;
+pthread_setname_np :: (name: *u8) -> s32                         #foreign libc;
+```
 
-resolve :: (link: string, path: string) -> string {
-    if link[0] == #char "/" { result = copy_string(link); }
-    else                    { result = tprint("%/%", dir_of(path), link); }
-    return result;
+### 5. Struct and enum field alignment
+
+`name: type;` fields align on the type; `name : type` is normalized to `name: type`.
+
+```jai
+Pair :: struct {
+    key:   string;
+    value: string;
+    hits:  s64;
 }
 ```
 
-Enum members with values and inline `case` bodies:
+### 6. Variable declaration alignment
+
+`:=` declarations align, including multi-return lvalues.
 
 ```jai
-Token_Kind :: enum {
-    IDENT  :: 256;
-    NUMBER :: 257;
-    STRING :: 258;
-}
+email        := json_get_string(root, "email");
+password     := json_get_string(root, "password");
+age, has_age := json_get(root, "age");
+```
 
+### 7. Assignment alignment
+
+Plain `=` assignments align on the `=`.
+
+```jai
+res.status       = status;
+res.content_type = "application/json";
+res.body         = body;
+```
+
+### 8. Inline `case` alignment
+
+Inline case bodies align after the longest case label.
+
+```jai
 describe :: (t: Token_Kind) -> string {
     if t == {
         case .IDENT;  return "identifier";
@@ -171,142 +143,188 @@ describe :: (t: Token_Kind) -> string {
 }
 ```
 
-`:=` declarations, including multi-return lvalues:
+### 9. Braced `if` / `else` chain alignment
+
+Single-line braced chains align their blocks one space after the longest condition.
 
 ```jai
-email        := json_get_string(root, "email");
-password     := json_get_string(root, "password");
-age, has_age := json_get(root, "age");
+resolve :: (link: string, path: string) -> string {
+    if link[0] == #char "/" { result = copy_string(link); }
+    else                    { result = tprint("%/%", dir_of(path), link); }
+    return result;
+}
 ```
 
-### What it formats
+### 10. Inline `if` with `return` / `break` / `continue`
 
-**Statement layout**
+When the body of an inline `if` is a jump statement, it stays bare (no `then`, no braces) and
+consecutive guards align after the longest condition. A stray `then` before a jump (including ones
+inserted by older versions of this formatter) is removed.
 
-- One statement per line: code after an opening `{` moves to the next line (when the block spans
-  multiple lines), and multiple `;`-terminated statements on one line are split apart — this also
-  disambiguates traps like `if cond  a; b;` where `b;` runs unconditionally
-- Single-line `if` / `else if` bodies get the `then` keyword: `if cond  stmt;` becomes
-  `if cond then stmt;` (bare `else  stmt;` becomes `else stmt;`); single-line `while` / `for` bodies
-  are braced (`while x > 0  step();` becomes `while x > 0 { step(); }`). When sloppy spacing makes
-  the condition/body boundary ambiguous, the line is only cleaned, never restructured
-- Short `if` / `else` bodies collapse to one line (`if cond { a += 1; b += 1; }`) when the result
-  fits 100 columns and the body is simple statements only; longer or complex bodies stay multi-line
-- Single-statement `then` lines you write yourself are kept as-is (spacing normalized); extra
-  statements after the `if`'s first `;` always split onto their own line
+Before:
 
-**Global whitespace cleanup**
+```jai
+format_bytes :: (b: float64) -> string {
+    if b < 1024 return tprint("% B", b);
+    if b < 1024 * 1024 then return tprint("% KB", b / 1024.0);
+    if b < 1024 * 1024 * 1024 return tprint("% MB", b / (1024.0 * 1024.0));
+    return tprint("% GB", b / (1024.0 * 1024.0 * 1024.0));
+}
+```
 
-- Runs of extra spaces anywhere in code collapse to a single space (`x   :=  f(a,    b);` becomes
-  `x := f(a, b);`) — string contents, comment text, and here-strings are untouched
-- Trailing `//` comments get exactly two spaces before them
-- Cleanup runs first; the alignment rules below then re-create every deliberate column, so stale
-  hand-padding disappears while intentional alignment is rebuilt
+After:
 
-**Indentation & whitespace**
+```jai
+format_bytes :: (b: float64) -> string {
+    if b < 1024               return tprint("% B", b);
+    if b < 1024 * 1024        return tprint("% KB", b / 1024.0);
+    if b < 1024 * 1024 * 1024 return tprint("% MB", b / (1024.0 * 1024.0));
+    return tprint("% GB", b / (1024.0 * 1024.0 * 1024.0));
+}
+```
 
-- 4-space indentation from brace/paren/bracket depth; tabs in leading whitespace are replaced
-- `case` bodies on following lines get one extra level; nested blocks inside a case carry it through
-- Continuation lines inside multi-line calls indent one level, even when several parens open on the
-  same line (`send_json(res, tprint(` counts once)
-- Trailing whitespace stripped; file ends with exactly one newline
-- Blank-line runs collapse to a single blank line; leading/trailing blank lines are removed
+### 11. `then` for other inline `if` bodies
 
-**Column alignment** (groups of 2+ consecutive declarations at the same indent, `::`/`:`/`=`/`:=`
-padded to the longest name + 1):
+Any other single-line `if` body gets the `then` keyword so the condition/body boundary is explicit.
+A second statement after the `;` always moves to its own line, because the `if` only governs the
+first statement — the split makes the real behavior visible.
 
-- `::` declarations of any kind that fit on one line — constants, `#foreign` bindings, `#library` /
-  `#import` lines
-- Struct/enum fields and typed declarations: `name: type;` (also normalizes `name : type` to
-  `name: type`)
-- Assignments: `lvalue = expr;`
-- Variable declarations: `name := value;`, including multi-return `value, ok := ...`
-- Inline `case` bodies: `case .X;  statement;`
-- Single-line `if` / `else if` / `else` chains: braced bodies align one space after the longest
-  condition, with `else` branches padded to the same column
+Before:
 
-A blank line (or any non-matching line) separates groups — use one to keep two neighbors from
-aligning together.
+```jai
+if !last_closed_transparent  opaque_depth -= 1;
+if x > 5 then y += 1; z += 1;    // z += 1 runs ALWAYS, even when x <= 5
+```
 
-**HTML here-strings**
+After:
 
-- Content of `#string HTML` here-strings is re-indented by tag nesting depth (4 spaces per level) —
-  indentation only, the markup itself is never changed
-- `<style>` / `<script>` contents are kept flat at one level; void tags (`<meta>`, `<img>`, `<br>`,
-  ...), self-closing tags, doctype, and comments don't open a level
-- Here-strings with any other terminator (`#string DONE`, ...) remain completely untouched
+```jai
+if !last_closed_transparent then opaque_depth -= 1;
+if x > 5 then y += 1;
+z += 1;
+```
 
-**Never touched**
+### 12. Braces for inline loops
+
+Single-line `while` / `for` bodies are wrapped in braces. Write the braces yourself and the body can
+hold any number of statements inline — it is kept as-is. Without braces the loop only governs the
+first statement, so anything after the first `;` is split onto its own line to make that visible.
+
+Before:
+
+```jai
+while x > 0  step();
+while x > 0 { x -= 1; total += x; }
+for 1..count  advance(); emit(it);    // trap: emit(it) runs AFTER the loop, once
+```
+
+After:
+
+```jai
+while x > 0 { step(); }
+while x > 0 { x -= 1; total += x; }
+for 1..count { advance(); }
+emit(it);  // trap: emit(it) runs AFTER the loop, once
+```
+
+### 13. Imports move to the top
+
+All top-level `#import` and `#load` statements are hoisted to the top of the file (after a leading
+file comment, if any), in their original order, followed by a blank line. Imports inside `#string`
+blocks or nested in `#if` braces stay where they are.
+
+Before:
+
+```jai
+main :: () {
+    print("hi");
+}
+
+#import "Basic";
+#load "http.jai";
+```
+
+After:
+
+```jai
+#import "Basic";
+#load "http.jai";
+
+main :: () {
+    print("hi");
+}
+```
+
+### 14. HTML here-string indentation
+
+The content of `#string HTML` here-strings is re-indented by tag nesting depth — indentation only,
+the markup itself is never changed. Void tags, self-closing tags, doctype, and comments don't open a
+level; `<style>` / `<script>` contents stay flat. Here-strings with any other terminator remain
+completely untouched.
+
+Before:
+
+```jai
+PAGE :: #string HTML
+<html>
+<head>
+<meta charset="utf-8">
+</head>
+<body>
+<div class="row">
+<p>Hello</p>
+</div>
+</body>
+</html>
+HTML
+```
+
+After:
+
+```jai
+PAGE :: #string HTML
+<html>
+    <head>
+        <meta charset="utf-8">
+    </head>
+    <body>
+        <div class="row">
+            <p>Hello</p>
+        </div>
+    </body>
+</html>
+HTML
+```
+
+### 15. Never touched
 
 - Anything inside strings, `#string` here-strings (except `#string HTML` indentation, above), and
   block comments
-- Spacing inside a line beyond the alignment rules above (hand-formatting survives)
+- Spacing inside a line beyond the rules above — hand-formatting survives
 - Multi-line declarations (`proc :: (…) {`, `X :: struct {`) — only single-line `;`-terminated
   declarations align
 
-## Performance
-
-Measured on an M-series Mac against two workspaces: a small real project (~1.4k lines, ~17k
-declarations including imported compiler modules) and a large stress-test workspace built from real
-Jai code (3 copies of the compiler's `modules/` tree: **1,627 files / 1,030,552 lines / 332,440
-declarations**). Latencies are medians of repeated requests against the same running server.
-
-### Small project (~17k declarations)
-
-| Operation      | Latency |
-| -------------- | ------- |
-| definition     | 0.2 ms  |
-| hover          | ~1 ms   |
-| references     | 2 ms    |
-| semanticTokens | 1.9 ms  |
-| formatting     | 3.5 ms  |
-| completion     | 17 ms   |
-
-### 1M-line workspace (332k declarations)
-
-What holds up:
-
-| Operation                            | Latency | Notes                            |
-| ------------------------------------ | ------- | -------------------------------- |
-| definition / hover                   | 1.6 ms  |                                  |
-| documentSymbol (13,620-line file)    | 1.2 ms  |                                  |
-| didChange reindex (small file)       | 4.6 ms  | per keystroke                    |
-| didChange reindex (13,620-line file) | 109 ms  | typing in giant files lags a bit |
-| semanticTokens (13,620-line file)    | 64 ms   | debounced by the editor          |
-| formatting (13,620-line file)        | 159 ms  | save-time only                   |
-
-Known limits at this scale:
-
-| Problem    | Measured                    | Cause                                                                                                                        |
-| ---------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| completion | 463 ms, 332k items (~60 MB) | every declaration is sent on every request — needs server-side prefix filtering with `isIncomplete`                          |
-| references | 1.9 s                       | re-reads all workspace files from disk per request — needs the file-content cache we already build during indexing           |
-| memory     | ~655 MB RSS                 | ~2 KB per declaration (per-decl heap copies of path/signature/completion JSON) — path interning would cut this substantially |
-| startup    | 41.8 s                      | single-threaded lex + index of 1M lines, one-time per window                                                                 |
-
-Below ~100k lines none of these limits are noticeable; on a typical project every request is
-effectively instant.
+Formatting is idempotent: running the formatter on its own output changes nothing.
 
 ## Future improvements
 
 Concrete changes to come back to, roughly in order of impact.
 
-**Performance at scale** (each maps to a measured limit above)
+**Performance at scale** (measured on a 1M-line / 332k-declaration stress workspace)
 
 - [ ] **Completion: server-side filtering.** Match items against the word being typed, return the
-      best ~1,000 with `isIncomplete: true` so the editor re-queries as you type. Fixes the
-      463 ms / 60 MB response on huge workspaces and shrinks the 17 ms on normal ones. The
-      per-declaration JSON fragments are already precomputed, so this is a filter loop in
-      `handle_completion`.
+      best ~1,000 with `isIncomplete: true` so the editor re-queries as you type. Fixes the 463 ms /
+      60 MB response on huge workspaces and shrinks the 17 ms on normal ones. The per-declaration
+      JSON fragments are already precomputed, so this is a filter loop in `handle_completion`.
 - [ ] **References: in-memory file cache.** `scan_workspace` already reads every file once and
-      throws the text away; keeping it (~35 MB per 1M lines) turns the per-request disk sweep
-      (1.9 s) into an in-memory scan. Needs invalidation from `didChange`/`didSave` only.
-- [ ] **Memory: intern per-file strings.** Every declaration heap-copies its `path`; one shared
-      copy per file would cut a large slice of the ~2 KB/decl footprint. Same idea for dropping
-      `signature` where `completion_base` already embeds it.
+      throws the text away; keeping it (~35 MB per 1M lines) turns the per-request disk sweep (1.9
+      s) into an in-memory scan. Needs invalidation from `didChange`/`didSave` only.
+- [ ] **Memory: intern per-file strings.** Every declaration heap-copies its `path`; one shared copy
+      per file would cut a large slice of the ~2 KB/decl footprint (~655 MB RSS at 1M lines). Same
+      idea for dropping `signature` where `completion_base` already embeds it.
 - [ ] **Startup: parallel or lazy indexing.** 41.8 s for 1M lines is single-threaded lexing; the
-      Thread module could fan out per-file indexing, or module indexing could become lazy
-      (index a module on first lookup miss instead of at startup).
+      Thread module could fan out per-file indexing, or module indexing could become lazy (index a
+      module on first lookup miss instead of at startup).
 
 **Resolution quality**
 
@@ -322,9 +340,8 @@ Concrete changes to come back to, roughly in order of impact.
 
 **Protocol & plumbing**
 
-- [ ] **Incremental sync.** The server requests full-document sync; every keystroke ships the
-      whole file. `TextDocumentSyncKind.Incremental` would cut didChange traffic on big files
-      (the 109 ms reindex of a 13k-line file includes receiving all of it).
+- [ ] **Incremental sync.** The server requests full-document sync; every keystroke ships the whole
+      file. `TextDocumentSyncKind.Incremental` would cut didChange traffic on big files.
 - [ ] **External file watching.** Edits made outside the editor (git checkout, generators) aren't
       reindexed until the file is opened; a `workspace/didChangeWatchedFiles` registration would
       cover this.
@@ -350,15 +367,8 @@ code --install-extension jai-lsp-scratch-<version>.vsix
 
 or in VS Code: Extensions panel → `...` menu → _Install from VSIX..._
 
-The extension bundles a prebuilt server binary (macOS arm64; more platforms as they get built). No
-further setup is needed for navigation features.
-
-For **diagnostics**, the server needs your Jai compiler. It tries `jai` on PATH; if that doesn't
-resolve, set:
-
-```json
-"jaiLspScratch.compilerPath": "/path/to/jai/bin/jai-macos"
-```
+The extension bundles a prebuilt server binary (macOS arm64). For **diagnostics**, the server needs
+your Jai compiler — it tries `jai` on PATH; otherwise set `jaiLspScratch.compilerPath`.
 
 ## Settings
 
@@ -382,12 +392,8 @@ make release    # package + create/refresh the GitHub release for the current ve
 make clean      # remove build artifacts and .vsix files
 ```
 
-All build artifacts (executable, dSYM, intermediates) go to `server/build/` — `server/build.jai` is
-a metaprogram that sets `output_path` and `intermediate_path`.
-
 Dev loop: set `jaiLspScratch.serverPath` to `<repo>/server/build/jai-lsp-scratch`, run `make dev`,
-and reload the VS Code window after each rebuild — no reinstall needed. Clear the setting to go back
-to the bundled binary.
+and reload the VS Code window after each rebuild — no reinstall needed.
 
 ## Credits
 

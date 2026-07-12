@@ -80,6 +80,100 @@ parse_const_line :: (line: Out_Line) -> Const_Line {
     return result;
 }
 
+jump_keyword_at :: (t: string, m: s64) -> bool {
+    if m > 0 && is_word_char(t[m-1]) { return false; }
+    KEYWORDS :: string.["return", "break", "continue"];
+    for kw: KEYWORDS {
+        if m + kw.count <= t.count && slice(t, m, kw.count) == kw
+        && (m + kw.count == t.count || !is_word_char(t[m + kw.count])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+parse_if_return_line :: (line: Out_Line) -> Const_Line {
+    result: Const_Line;
+    if line.protected { return result; }
+    t := line.text;
+    k := line.indent * 4;
+    if t.count <= k + 3 { return result; }
+    if slice(t, k, 3) != "if " { return result; }
+    if has_then_keyword(slice(t, k, t.count - k)) { return result; }
+
+    m     := k + 3;
+    depth := 0;
+    pos   := -1;
+    while m < t.count {
+        c := t[m];
+        if c == #char "\"" {
+            m = skip_string(t, m);
+            continue;
+        }
+        if c == #char "/" && m + 1 < t.count && t[m+1] == #char "/" { break; }
+        if c == #char "(" || c == #char "[" || c == #char "{" { depth += 1; }
+        if c == #char ")" || c == #char "]" || c == #char "}" { depth -= 1; }
+        if depth == 0 && jump_keyword_at(t, m) {
+            pos = m;
+            break;
+        }
+        m += 1;
+    }
+    if pos == -1 { return result; }
+
+    cond_end := pos;
+    while cond_end > k && t[cond_end - 1] == #char " " { cond_end -= 1; }
+    if cond_end <= k + 3 { return result; }
+    name := slice(t, k, cond_end - k);
+    rest := slice(t, pos, t.count - pos);
+    found_semicolon, _ := contains(rest, #char ";");
+    if !found_semicolon { return result; }
+
+    result.ok   = true;
+    result.name = name;
+    result.rest = rest;
+    return result;
+}
+
+parse_foreign_line :: (line: Out_Line) -> Const_Line {
+    result: Const_Line;
+    if line.protected { return result; }
+    t := line.text;
+    k := line.indent * 4;
+    if t.count <= k { return result; }
+
+    pos := -1;
+    m   := k;
+    while m < t.count {
+        c := t[m];
+        if c == #char "\"" {
+            m = skip_string(t, m);
+            continue;
+        }
+        if c == #char "/" && m + 1 < t.count && t[m+1] == #char "/" { break; }
+        if c == #char "#" && m + 8 <= t.count && slice(t, m, 8) == "#foreign"
+        && (m + 8 == t.count || !is_word_char(t[m+8])) {
+            pos = m;
+            break;
+        }
+        m += 1;
+    }
+    if pos == -1 { return result; }
+
+    name_end := pos;
+    while name_end > k && t[name_end - 1] == #char " " { name_end -= 1; }
+    if name_end == k { return result; }
+    name := slice(t, k, name_end - k);
+    rest := slice(t, pos, t.count - pos);
+    found_semicolon, _ := contains(rest, #char ";");
+    if !found_semicolon { return result; }
+
+    result.ok   = true;
+    result.name = name;
+    result.rest = rest;
+    return result;
+}
+
 parse_field_line :: (line: Out_Line) -> Const_Line {
     result: Const_Line;
     if line.protected { return result; }
@@ -334,6 +428,42 @@ align_if_else_chains :: (lines: [] Out_Line) {
     }
 }
 
+strip_then_before_jump :: (lines: [] Out_Line) {
+    for * lines {
+        if it.protected || it.text.count == 0 { continue; }
+        t := it.text;
+        k := it.indent * 4;
+        if t.count <= k + 3 { continue; }
+        if slice(t, k, 3) != "if " && (t.count <= k + 5 || slice(t, k, 5) != "else ") { continue; }
+
+        m     := k;
+        depth := 0;
+        while m < t.count {
+            c := t[m];
+            if c == #char "\"" {
+                m = skip_string(t, m);
+                continue;
+            }
+            if c == #char "/" && m + 1 < t.count && t[m+1] == #char "/" { break; }
+            if c == #char "(" || c == #char "[" || c == #char "{" { depth += 1; }
+            if c == #char ")" || c == #char "]" || c == #char "}" { depth -= 1; }
+            if depth == 0 && c == #char "t" && m > k && t[m-1] == #char " "
+            && m + 4 < t.count && slice(t, m, 4) == "then" && t[m+4] == #char " " {
+                n := m + 4;
+                while n < t.count && t[n] == #char " " { n += 1; }
+                if jump_keyword_at(t, n) {
+                    builder: String_Builder;
+                    append(*builder, slice(t, 0, m));
+                    append(*builder, slice(t, n, t.count - n));
+                    it.text = builder_to_string(*builder);
+                }
+                break;
+            }
+            m += 1;
+        }
+    }
+}
+
 wrap_inline_controls :: (lines: [] Out_Line) {
     for * lines {
         if it.protected { continue; }
@@ -342,6 +472,7 @@ wrap_inline_controls :: (lines: [] Out_Line) {
         chain := parse_chain_line(it);
         if chain.kind != .NONE {
             if chain.stmt[0] == #char "{" { continue; }
+            if jump_keyword_at(chain.stmt, 0) { continue; }
             if chain.kind == .ELSE { body = chain.stmt; }
             else                   { body = tprint("then %", chain.stmt); }
             prefix = chain.prefix;
