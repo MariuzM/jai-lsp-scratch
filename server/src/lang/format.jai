@@ -209,7 +209,7 @@ collapse_whitespace :: (s: string) -> string {
             while m < s.count && (s[m] == #char " " || s[m] == #char "\t") { m += 1; }
             if m >= s.count { break; }
             if m + 1 < s.count && s[m] == #char "/" && s[m+1] == #char "/" { append(*builder, "  "); }
-            else                                                          { append(*builder, " "); }
+            else                                                           { append(*builder, " "); }
             k = m;
             continue;
         }
@@ -247,7 +247,7 @@ hoist_imports :: (lines: [..] Out_Line) -> [..] Out_Line {
     result: [..] Out_Line;
     for i: 0..header-1 { array_add(*result, lines[i]); }
     for imports { array_add(*result, it); }
-    for rest    { array_add(*result, it); }
+    for rest { array_add(*result, it); }
     return result;
 }
 
@@ -271,6 +271,7 @@ is_import_line :: (text: string) -> bool {
     content := trim(text);
     if starts_with(content, "#import") || starts_with(content, "#load") { return true; }
     found, _ := contains(content, ":: #import");
+
     return found;
 }
 

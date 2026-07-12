@@ -476,7 +476,6 @@ symbol_kind_number :: (kind: Decl_Kind) -> s32 {
     return 14;
 }
 
-
 append_location :: (builder: *String_Builder, decl: Decl) {
     print_to_builder(builder,
         "{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}",

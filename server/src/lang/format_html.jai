@@ -44,8 +44,8 @@ html_indent_line :: (s: *Format_State, line: string) -> string {
         end := k;
         while end < content.count && content[end] != #char ">" { end += 1; }
         self_closing := end > 0 && end < content.count && content[end - 1] == #char "/";
-        is_void := false;
-        for HTML_VOID_TAGS  if it == name then is_void = true;
+        is_void      := false;
+        for HTML_VOID_TAGS { if it == name then is_void = true; }
         if !self_closing && !is_void {
             net += 1;
             seen_open = true;
@@ -69,7 +69,7 @@ HTML_VOID_TAGS :: string.["meta", "img", "br", "hr", "input", "link", "source", 
 html_tag_name :: (content: string, start: s64) -> string {
     k := start;
     while k < content.count {
-        c := content[k];
+        c  := content[k];
         ok := (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || (c >= #char "0" && c <= #char "9") || c == #char "-";
         if !ok { break; }
         k += 1;

@@ -20,7 +20,7 @@ Decl :: struct {
     completion_base: string;
 }
 
-g_decls: [..] Decl;
+g_decls:            [..] Decl;
 g_decls_generation: s64;
 
 index_file :: (path: string, content: string, module := "") {
@@ -152,7 +152,7 @@ find_scoped_local :: (content: string, name: string, line: s32, col: s32) -> boo
     curly := 0;
     paren := 0;
     for i: 0..toks.count-1 {
-        t := toks[i];
+        t      := toks[i];
         t_line := t.l0 - 1;
         t_col  := t.c0 - 1;
         if t_line > line || (t_line == line && t_col > col) { break; }
@@ -174,8 +174,7 @@ find_scoped_local :: (content: string, name: string, line: s32, col: s32) -> boo
 
         j := i;
         while j + 2 < toks.count && toks[j+1].type == cast(Token_Type) #char "," && toks[j+2].type == .IDENT { j += 2; }
-        is_decl := j + 1 < toks.count && toks[j+1].type == cast(Token_Type) #char ":"
-                && !(j + 2 < toks.count && toks[j+2].type == cast(Token_Type) #char ":");
+        is_decl := j + 1 < toks.count && toks[j+1].type == cast(Token_Type) #char ":" && !(j + 2 < toks.count && toks[j+2].type == cast(Token_Type) #char ":");
         if !is_decl { continue; }
 
         depth := curly;
@@ -224,7 +223,7 @@ semantic_spans :: (content: string, path: string) -> [..] Ident_Span {
     file_kinds: Table(string, s32);
     for g_decls {
         if it.path != path { continue; }
-        index := semantic_kind_index(it.kind);
+        index           := semantic_kind_index(it.kind);
         existing, found := table_find(*file_kinds, it.name);
         if found && existing <= index { continue; }
         table_set(*file_kinds, it.name, index);
@@ -269,7 +268,7 @@ semantic_spans :: (content: string, path: string) -> [..] Ident_Span {
             j := i;
             while j + 2 < toks.count && toks[j+1].type == cast(Token_Type) #char "," && toks[j+2].type == .IDENT { j += 2; }
             is_decl := j + 1 < toks.count && toks[j+1].type == cast(Token_Type) #char ":"
-                    && !(j + 2 < toks.count && toks[j+2].type == cast(Token_Type) #char ":");
+            && !(j + 2 < toks.count && toks[j+2].type == cast(Token_Type) #char ":");
             if is_decl {
                 depth := curly;
                 if paren > 0 { depth = curly + 1; }
@@ -305,7 +304,7 @@ semantic_spans :: (content: string, path: string) -> [..] Ident_Span {
 
 #scope_file
 
-g_kinds_cache: Table(string, s32);
+g_kinds_cache:            Table(string, s32);
 g_kinds_cache_generation: s64 = -1;
 
 semantic_kinds :: () -> *Table(string, s32) {

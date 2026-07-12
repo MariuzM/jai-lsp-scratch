@@ -124,8 +124,8 @@ parse_if_return_line :: (line: Out_Line) -> Const_Line {
     cond_end := pos;
     while cond_end > k && t[cond_end - 1] == #char " " { cond_end -= 1; }
     if cond_end <= k + 3 { return result; }
-    name := slice(t, k, cond_end - k);
-    rest := slice(t, pos, t.count - pos);
+    name               := slice(t, k, cond_end - k);
+    rest               := slice(t, pos, t.count - pos);
     found_semicolon, _ := contains(rest, #char ";");
     if !found_semicolon { return result; }
 
@@ -163,8 +163,8 @@ parse_foreign_line :: (line: Out_Line) -> Const_Line {
     name_end := pos;
     while name_end > k && t[name_end - 1] == #char " " { name_end -= 1; }
     if name_end == k { return result; }
-    name := slice(t, k, name_end - k);
-    rest := slice(t, pos, t.count - pos);
+    name               := slice(t, k, name_end - k);
+    rest               := slice(t, pos, t.count - pos);
     found_semicolon, _ := contains(rest, #char ";");
     if !found_semicolon { return result; }
 
@@ -474,7 +474,7 @@ wrap_inline_controls :: (lines: [] Out_Line) {
             if chain.stmt[0] == #char "{" { continue; }
             if jump_keyword_at(chain.stmt, 0) { continue; }
             if chain.kind == .ELSE { body = chain.stmt; }
-            else                   { body = tprint("then %", chain.stmt); }
+            else { body = tprint("then %", chain.stmt); }
             prefix = chain.prefix;
         } else {
             loop := parse_loop_line(it);
