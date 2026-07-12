@@ -161,19 +161,86 @@ Ident_Span :: struct {
     token_kind: s32;
 }
 
-semantic_spans :: (content: string) -> [..] Ident_Span {
+semantic_spans :: (content: string, path: string) -> [..] Ident_Span {
     spans: [..] Ident_Span;
     kinds := semantic_kinds();
 
-    toks := collect_tokens(content);
-    for toks {
-        if it.type != .IDENT { continue; }
-        index, found := table_find(kinds, it.name);
-        if !found { continue; }
+    file_kinds: Table(string, s32);
+    for g_decls {
+        if it.path != path { continue; }
+        index := semantic_kind_index(it.kind);
+        existing, found := table_find(*file_kinds, it.name);
+        if found && existing <= index { continue; }
+        table_set(*file_kinds, it.name, index);
+    }
+
+    Local_Entry :: struct {
+        name:  string;
+        depth: s64;
+    }
+    local_stack:  [..] Local_Entry;
+    local_counts: Table(string, s32);
+
+    toks  := collect_tokens(content);
+    curly := 0;
+    paren := 0;
+    for i: 0..toks.count-1 {
+        t := toks[i];
+        if t.type == {
+            case cast(Token_Type) #char "{"; curly += 1;
+            case .BEGIN_STRUCT_LITERAL;      curly += 1;
+            case cast(Token_Type) #char "}";
+                curly -= 1;
+                if curly < 0 { curly = 0; }
+                while local_stack.count > 0 && local_stack[local_stack.count - 1].depth > curly {
+                    entry := local_stack[local_stack.count - 1];
+                    local_stack.count -= 1;
+                    count, found := table_find(*local_counts, entry.name);
+                    if found {
+                        if count <= 1 { table_remove(*local_counts, entry.name); }
+                        else          { table_set(*local_counts, entry.name, count - 1); }
+                    }
+                }
+            case cast(Token_Type) #char "("; paren += 1;
+            case cast(Token_Type) #char ")";
+                paren -= 1;
+                if paren < 0 { paren = 0; }
+        }
+        if t.type != .IDENT { continue; }
+
+        prev_is_dot := i > 0 && toks[i-1].type == cast(Token_Type) #char ".";
+        if !prev_is_dot {
+            j := i;
+            while j + 2 < toks.count && toks[j+1].type == cast(Token_Type) #char "," && toks[j+2].type == .IDENT { j += 2; }
+            is_decl := j + 1 < toks.count && toks[j+1].type == cast(Token_Type) #char ":"
+                    && !(j + 2 < toks.count && toks[j+2].type == cast(Token_Type) #char ":");
+            if is_decl {
+                depth := curly;
+                if paren > 0 { depth = curly + 1; }
+                p := i - 1;
+                if p >= 0 && toks[p].type == cast(Token_Type) #char "*" { p -= 1; }
+                if p >= 0 && toks[p].type == .KEYWORD_FOR { depth = curly + 1; }
+                count, found := table_find(*local_counts, t.name);
+                if found { table_set(*local_counts, t.name, count + 1); }
+                else     { table_set(*local_counts, t.name, 1); }
+                entry: Local_Entry;
+                entry.name  = t.name;
+                entry.depth = depth;
+                array_add(*local_stack, entry);
+            }
+        }
+
+        _, is_local := table_find(*local_counts, t.name);
+        if is_local { continue; }
+
+        index, found := table_find(*file_kinds, t.name);
+        if !found { index, found = table_find(kinds, t.name); }
+        if !found || index == -1 { continue; }
+
         span: Ident_Span;
-        span.line       = it.l0 - 1;
-        span.col        = it.c0 - 1;
-        span.length     = cast(s32) it.name.count;
+        span.line       = t.l0 - 1;
+        span.col        = t.c0 - 1;
+        span.length     = cast(s32) t.name.count;
         span.token_kind = index;
         array_add(*spans, span);
     }

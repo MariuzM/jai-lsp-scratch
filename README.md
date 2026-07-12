@@ -328,9 +328,11 @@ Concrete changes to come back to, roughly in order of impact.
 
 **Resolution quality**
 
-- [ ] **Scope-aware lookups.** Definition and semantic tokens are name-based; a local variable
-      sharing a name with an indexed type gets the type's color and definition. Preferring the
-      nearest enclosing local declaration would fix both.
+- [ ] **Scope-aware definition.** Semantic highlighting is scope-aware (file-local declarations
+      override workspace-wide name matches, and locals/parameters suppress coloring while in
+      scope), but go-to-definition is still name-based: a local sharing a name with an indexed
+      symbol resolves to all candidates. The same scope tracking should rank the nearest
+      enclosing declaration first.
 - [ ] **Platform-aware definitions.** Symbols defined per-OS (`generated_linux.jai`,
       `generated_windows.jai`, ...) return all variants; the current platform's file should rank
       first.
