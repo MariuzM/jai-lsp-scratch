@@ -1,7 +1,8 @@
 # Jai LSP Scratch
 
-A language server for the [Jai programming language](https://youtube.com/user/jblow888), written in
-Jai itself, with a VS Code extension.
+An all-in-one tool for the [Jai programming language](https://youtube.com/user/jblow888) — language
+server, code formatter, and semantic highlighter in a single binary, written in Jai itself and
+shipped as a VS Code extension (which also bundles a TextMate grammar for syntax highlighting).
 
 > ⚠️ **Experimental project.** Built and tested against a leaked, outdated build of the Jai compiler
 > — not the current closed beta. Newer compiler versions might not work with this; until I can
