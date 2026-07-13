@@ -11,6 +11,7 @@ Posix :: #import "POSIX";
 #load "lsp/handlers.jai";
 #load "lang/workspace.jai";
 #load "lang/index.jai";
+#load "lang/complete.jai";
 #load "lang/check.jai";
 #load "lang/format.jai";
 #load "lang/format_split.jai";
@@ -23,6 +24,8 @@ g_root: string;
 g_compiler := "jai";
 g_shutdown := false;
 g_exit     := false;
+
+g_space_after_array_type := true;
 
 main :: () {
     g_heap         = context.allocator;

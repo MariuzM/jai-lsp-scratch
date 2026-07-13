@@ -3,9 +3,9 @@ Doc :: struct {
     text: string;
 }
 
-g_docs:            [..] Doc;
-g_files:           [..] string;
-g_indexed_modules: [..] string;
+g_docs:            [..]Doc;
+g_files:           [..]string;
+g_indexed_modules: [..]string;
 
 get_text :: (path: string) -> string, bool {
     index := find_doc(path);
@@ -43,8 +43,8 @@ index_common_modules :: () {
     for COMMON_MODULES { index_module(it); }
 }
 
-file_imports :: (text: string) -> [..] string {
-    imports: [..] string;
+file_imports :: (text: string) -> [..]string {
+    imports: [..]string;
     remaining := text;
     while 1 {
         index := find_index_from_left(remaining, "#import");
@@ -81,7 +81,7 @@ import_insert_line :: (text: string) -> s64 {
 }
 
 scan_workspace :: () {
-    filenames: [..] string;
+    filenames: [..]string;
     visit_files(g_root, true, *filenames, visit_jai_files);
     count := 0;
     for filenames {
@@ -152,7 +152,7 @@ resolve_compiler_path :: () {
     }
 
     for 1..8 {
-        buffer: [4096] u8;
+        buffer: [4096]u8;
         n := Posix.readlink(temp_c_string(path), buffer.data, 4096);
         if n <= 0 { break; }
         link: string;
@@ -233,7 +233,7 @@ find_doc :: (path: string) -> s64 {
     return -1;
 }
 
-visit_jai_files :: (info: *File_Visit_Info, results: *[..] string) {
+visit_jai_files :: (info: *File_Visit_Info, results: *[..]string) {
     if ends_with(info.short_name, ".jai") { array_add(results, copy_string(info.full_name)); }
 }
 
@@ -255,7 +255,7 @@ index_module :: (name: string) {
     dir         := tprint("%/%", base, name);
     module_main := tprint("%/module.jai", dir);
     if !file_exists(module_main) { return; }
-    filenames: [..] string;
+    filenames: [..]string;
     visit_files(dir, true, *filenames, visit_jai_files);
     count := 0;
     for filenames {

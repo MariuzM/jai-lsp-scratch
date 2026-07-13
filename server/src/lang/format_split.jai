@@ -44,8 +44,8 @@ find_split_point :: (s: string, block_comment_depth: *s64, here_terminator: *str
     bc    := block_comment_depth.*;
     curly := 0;
     paren := 0;
-    brace_positions: [64] s64;
-    brace_bc:        [64] s64;
+    brace_positions: [64]s64;
+    brace_bc:        [64]s64;
     brace_count := 0;
 
     content := trim(s);

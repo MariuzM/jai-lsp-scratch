@@ -1,5 +1,5 @@
 g_entry_file:      string;
-g_last_diag_paths: [..] string;
+g_last_diag_paths: [..]string;
 
 CHECK_OUTPUT_DIR :: "/tmp/jai-lsp-scratch";
 
@@ -23,7 +23,7 @@ run_diagnostics :: () {
     combined := tprint("%\n%", output, error_output);
     diags    := parse_compiler_output(combined);
 
-    published: [..] string;
+    published: [..]string;
     for diags {
         already := false;
         for p: published if p == it.path already = true;
@@ -58,7 +58,7 @@ detect_entry_file :: (path: string, content: string) {
 
 #scope_file
 
-publish_for_path :: (path: string, diags: [] Diag) {
+publish_for_path :: (path: string, diags: []Diag) {
     builder: String_Builder;
     print_to_builder(*builder, "{\"uri\":\"%\",\"diagnostics\":[", path_to_uri(path));
     first := true;
@@ -74,8 +74,8 @@ publish_for_path :: (path: string, diags: [] Diag) {
     send_notification("textDocument/publishDiagnostics", builder_to_string(*builder));
 }
 
-parse_compiler_output :: (s: string) -> [..] Diag {
-    diags: [..] Diag;
+parse_compiler_output :: (s: string) -> [..]Diag {
+    diags: [..]Diag;
     remaining := s;
     while remaining.count > 0 {
         line: string;

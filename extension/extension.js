@@ -31,6 +31,7 @@ exports.activate = (ctx) => {
     return
   }
   const compilerPath = cfg.get('compilerPath') || 'jai'
+  const spaceAfterArrayType = cfg.get('spaceAfterArrayType', true)
 
   client = new LanguageClient(
     'jaiLspScratch',
@@ -38,7 +39,7 @@ exports.activate = (ctx) => {
     { command: serverPath },
     {
       documentSelector: [{ scheme: 'file', language: 'jai' }],
-      initializationOptions: { compilerPath },
+      initializationOptions: { compilerPath, spaceAfterArrayType },
     },
   )
   client.start()

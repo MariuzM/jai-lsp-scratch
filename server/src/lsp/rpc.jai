@@ -55,7 +55,7 @@ write_all :: (fd: s32, s: string) {
 
 #scope_file
 
-read_buffer: [..] u8;
+read_buffer: [..]u8;
 
 to_view :: (offset: s64, count: s64) -> string {
     s: string;

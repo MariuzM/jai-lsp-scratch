@@ -16,6 +16,9 @@ shipped as a VS Code extension (which also bundles a TextMate grammar for syntax
 - **Hover** — declaration signature and origin
 - **Completion with auto-import** — accepting a symbol from a module you haven't imported inserts
   the `#import` line for you
+- **Enum member completion** — typing `.` after `==`, `=`, or in a `case` infers the enum type of
+  the expression (through locals, struct fields, array indexing, and procedure return types) and
+  offers only that enum's members
 - **Document / workspace symbols**
 - **Semantic highlighting** — identifiers colored by what they are (`enum`, `struct`, `enumMember`,
   `function`) at every use site
@@ -138,6 +141,11 @@ sizes: [2 * N] u8;
 
 Pointer element types stay attached (`[..]*Node`), since a `*` after `]` is ambiguous with
 multiplication.
+
+Configurable via the `jaiLspScratch.spaceAfterArrayType` VS Code setting (default `true`, matching
+official Jai code). Set it to `false` to normalize the other way — `[..] string` becomes
+`[..]string` — only for markers in type position; indexing like `arr[i] then` is never glued.
+Changing the setting requires a window reload.
 
 > **Note:** I personally lean toward no gap here (`[..]string`) — I'm used to TypeScript, where the
 > type reads as one token. But `[..] string` is in Jai source code most of the time.

@@ -19,8 +19,8 @@ Json_Value :: struct {
     integer:  s64;
     number:   float64;
     str:      string;
-    members:  [..] Json_Member;
-    elements: [..] Json_Value;
+    members:  [..]Json_Member;
+    elements: [..]Json_Value;
 }
 
 json_parse :: (s: string) -> Json_Value, bool {

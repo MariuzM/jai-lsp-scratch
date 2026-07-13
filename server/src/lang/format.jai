@@ -12,10 +12,10 @@ Out_Line :: struct {
 Format_State :: struct {
     curly:               s64;
     pb_indent:           s64;
-    pb_stack:            [..] Pb_Entry;
+    pb_stack:            [..]Pb_Entry;
     block_comment_depth: s64;
     here_terminator:     string;
-    case_stack:          [..] bool;
+    case_stack:          [..]bool;
     html_mode:           bool;
     html_depth:          s64;
     html_raw:            string;
@@ -77,7 +77,7 @@ strip_trailing :: (line: string) -> string {
 #scope_file
 
 format_lines :: (text: string) -> string {
-    lines: [..] Out_Line;
+    lines: [..]Out_Line;
 
     s: Format_State;
     array_add(*s.case_stack, false);
@@ -168,7 +168,7 @@ format_lines :: (text: string) -> string {
     return builder_to_string(*builder);
 }
 
-normalize_spaces :: (lines: [] Out_Line) {
+normalize_spaces :: (lines: []Out_Line) {
     for * lines {
         if it.protected || it.text.count == 0 { continue; }
         content := slice(it.text, it.indent * 4, it.text.count - it.indent * 4);
@@ -178,14 +178,18 @@ normalize_spaces :: (lines: [] Out_Line) {
 }
 
 collapse_whitespace :: (s: string) -> string {
-    builder: String_Builder;
-    k := 0;
+    builder:         String_Builder;
+    bracket_is_type: [..]bool;
+    prev:            u8 = 0;
+    prev_close_is_type := false;
+    k                  := 0;
     while k < s.count {
         c := s[k];
         if c == #char "\"" {
             end := skip_string(s, k);
             append(*builder, slice(s, k, end - k));
-            k = end;
+            prev = #char "\"";
+            k    = end;
             continue;
         }
         if c == #char "/" && k + 1 < s.count && s[k+1] == #char "/" {
@@ -201,7 +205,8 @@ collapse_whitespace :: (s: string) -> string {
                 end += 1;
             }
             append(*builder, slice(s, k, end - k));
-            k = end;
+            prev = #char "/";
+            k    = end;
             continue;
         }
         if c == #char " " || c == #char "\t" {
@@ -209,16 +214,37 @@ collapse_whitespace :: (s: string) -> string {
             while m < s.count && (s[m] == #char " " || s[m] == #char "\t") { m += 1; }
             if m >= s.count { break; }
             if m + 1 < s.count && s[m] == #char "/" && s[m+1] == #char "/" { append(*builder, "  "); }
-            else                                                           { append(*builder, " "); }
+            else if !g_space_after_array_type && prev == #char "]" && prev_close_is_type && is_array_element_start(s[m]) {}
+            else { append(*builder, " "); }
             k = m;
             continue;
         }
-        if c == #char "]" && k + 1 < s.count && is_array_element_start(s[k+1]) {
-            append(*builder, "] ");
+        if c == #char "[" {
+            is_type := prev == 0
+            || !(is_word_char(prev) || prev == #char ")" || prev == #char "]" || prev == #char "}" || prev == #char "\"");
+            array_add(*bracket_is_type, is_type);
+            append(*builder, c);
+            prev = c;
+            k += 1;
+            continue;
+        }
+        if c == #char "]" {
+            prev_close_is_type = false;
+            if bracket_is_type.count > 0 {
+                prev_close_is_type = bracket_is_type[bracket_is_type.count - 1];
+                bracket_is_type.count -= 1;
+            }
+            if g_space_after_array_type && k + 1 < s.count && is_array_element_start(s[k+1]) {
+                append(*builder, "] ");
+            } else {
+                append(*builder, c);
+            }
+            prev = c;
             k += 1;
             continue;
         }
         append(*builder, c);
+        prev = c;
         k += 1;
     }
     return builder_to_string(*builder);
@@ -228,7 +254,7 @@ is_array_element_start :: (c: u8) -> bool {
     return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || c == #char "_";
 }
 
-hoist_imports :: (lines: [..] Out_Line) -> [..] Out_Line {
+hoist_imports :: (lines: [..]Out_Line) -> [..]Out_Line {
     header := 0;
     while header < lines.count {
         line := lines[header];
@@ -239,8 +265,8 @@ hoist_imports :: (lines: [..] Out_Line) -> [..] Out_Line {
         header += 1;
     }
 
-    imports: [..] Out_Line;
-    rest:    [..] Out_Line;
+    imports: [..]Out_Line;
+    rest:    [..]Out_Line;
     for i: header..lines.count-1 {
         line := lines[i];
         if !line.protected && line.indent == 0 && is_import_line(line.text) {
@@ -253,15 +279,15 @@ hoist_imports :: (lines: [..] Out_Line) -> [..] Out_Line {
     }
     if imports.count == 0 { return lines; }
 
-    result: [..] Out_Line;
+    result: [..]Out_Line;
     for i: 0..header-1 { array_add(*result, lines[i]); }
     for imports { array_add(*result, it); }
     for rest { array_add(*result, it); }
     return result;
 }
 
-ensure_import_separation :: (lines: [..] Out_Line) -> [..] Out_Line {
-    result: [..] Out_Line;
+ensure_import_separation :: (lines: [..]Out_Line) -> [..]Out_Line {
+    result: [..]Out_Line;
     for i: 0..lines.count-1 {
         array_add(*result, lines[i]);
         line := lines[i];

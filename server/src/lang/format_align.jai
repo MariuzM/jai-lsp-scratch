@@ -10,7 +10,7 @@ Align_Rule :: struct {
     sep_attached: bool;
 }
 
-align_groups :: (lines: [] Out_Line, rule: Align_Rule) {
+align_groups :: (lines: []Out_Line, rule: Align_Rule) {
     i := 0;
     while i < lines.count {
         first := rule.parse(lines[i]);
@@ -293,10 +293,7 @@ parse_case_line :: (line: Out_Line) -> Const_Line {
     semi := -1;
     m    := k;
     while m < t.count {
-        if t[m] == #char "\"" {
-            m = skip_string(t, m);
-            continue;
-        }
+        if t[m] == #char "\"" { m = skip_string(t, m); continue; }
         if t[m] == #char ";" { semi = m; break; }
         m += 1;
     }
@@ -395,7 +392,7 @@ parse_chain_line :: (line: Out_Line) -> Chain_Line {
     return result;
 }
 
-align_if_else_chains :: (lines: [] Out_Line) {
+align_if_else_chains :: (lines: []Out_Line) {
     i := 0;
     while i < lines.count {
         first := parse_chain_line(lines[i]);
@@ -428,7 +425,7 @@ align_if_else_chains :: (lines: [] Out_Line) {
     }
 }
 
-strip_then_before_jump :: (lines: [] Out_Line) {
+strip_then_before_jump :: (lines: []Out_Line) {
     for * lines {
         if it.protected || it.text.count == 0 { continue; }
         t := it.text;
@@ -464,7 +461,7 @@ strip_then_before_jump :: (lines: [] Out_Line) {
     }
 }
 
-wrap_inline_controls :: (lines: [] Out_Line) {
+wrap_inline_controls :: (lines: []Out_Line) {
     for * lines {
         if it.protected { continue; }
         body:   string;

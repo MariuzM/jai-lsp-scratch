@@ -8,19 +8,18 @@ Decl_Kind :: enum {
 }
 
 Decl :: struct {
-    name:      string;
-    path:      string;
-    line:      s32;
-    col:       s32;
-    name_end:  s32;
-    kind:      Decl_Kind;
-    signature: string;
-    module:    string;
-
+    name:            string;
+    path:            string;
+    line:            s32;
+    col:             s32;
+    name_end:        s32;
+    kind:            Decl_Kind;
+    signature:       string;
+    module:          string;
     completion_base: string;
 }
 
-g_decls:            [..] Decl;
+g_decls:            [..]Decl;
 g_decls_generation: s64;
 
 index_file :: (path: string, content: string, module := "") {
@@ -28,13 +27,14 @@ index_file :: (path: string, content: string, module := "") {
 
     toks := collect_tokens(content);
 
-    curly_stack:[..] bool;
+    curly_stack: [..]bool;
     opaque_depth            := 0;
     pending_transparent     := false;
     last_closed_transparent := false;
     paren                   := 0;
     bracket                 := 0;
     i                       := 0;
+
     while i < toks.count {
         t := toks[i];
         if t.type == {
@@ -103,14 +103,14 @@ remove_decls_for_file :: (path: string) {
     g_decls_generation += 1;
 }
 
-find_decls :: (name: string) -> [..] Decl {
-    results: [..] Decl;
+find_decls :: (name: string) -> [..]Decl {
+    results: [..]Decl;
     for g_decls if it.name == name array_add(*results, it);
     return results;
 }
 
-decls_in_file :: (path: string) -> [..] Decl {
-    results: [..] Decl;
+decls_in_file :: (path: string) -> [..]Decl {
+    results: [..]Decl;
     for g_decls if it.path == path array_add(*results, it);
     return results;
 }
@@ -121,8 +121,8 @@ Local_Hit :: struct {
     name_end: s32;
 }
 
-find_local_decl_sites :: (content: string, name: string) -> [..] Local_Hit {
-    hits: [..] Local_Hit;
+find_local_decl_sites :: (content: string, name: string) -> [..]Local_Hit {
+    hits: [..]Local_Hit;
     toks := collect_tokens(content);
     if toks.count == 0 { return hits; }
     for i: 0..toks.count-1 {
@@ -147,7 +147,7 @@ find_scoped_local :: (content: string, name: string, line: s32, col: s32) -> boo
         depth: s64;
         hit:   Local_Hit;
     }
-    stack: [..] Scope_Entry;
+    stack: [..]Scope_Entry;
 
     curly := 0;
     paren := 0;
@@ -216,8 +216,8 @@ Ident_Span :: struct {
     token_kind: s32;
 }
 
-semantic_spans :: (content: string, path: string) -> [..] Ident_Span {
-    spans: [..] Ident_Span;
+semantic_spans :: (content: string, path: string) -> [..]Ident_Span {
+    spans: [..]Ident_Span;
     kinds := semantic_kinds();
 
     file_kinds: Table(string, s32);
@@ -233,7 +233,7 @@ semantic_spans :: (content: string, path: string) -> [..] Ident_Span {
         name:  string;
         depth: s64;
     }
-    local_stack:  [..] Local_Entry;
+    local_stack:  [..]Local_Entry;
     local_counts: Table(string, s32);
 
     toks  := collect_tokens(content);
@@ -333,7 +333,7 @@ semantic_kind_index :: (kind: Decl_Kind) -> s32 {
     return -1;
 }
 
-index_enum_members :: (path: string, toks: [] Tok, enum_keyword_index: s64, enum_name: string, module: string) {
+index_enum_members :: (path: string, toks: []Tok, enum_keyword_index: s64, enum_name: string, module: string) {
     j := enum_keyword_index;
     while j < toks.count {
         t := toks[j].type;
@@ -376,14 +376,16 @@ index_enum_members :: (path: string, toks: [] Tok, enum_keyword_index: s64, enum
     }
 }
 
+#scope_export
+
 Tok :: struct {
     type: Token_Type;
     l0, c0, c1: s32;
     name: string;
 }
 
-collect_tokens :: (content: string) -> [..] Tok {
-    toks:  [..] Tok;
+collect_tokens :: (content: string) -> [..]Tok {
+    toks:  [..]Tok;
     lexer: Lexer;
     set_input_from_string(*lexer, content);
     while 1 {
@@ -401,6 +403,8 @@ collect_tokens :: (content: string) -> [..] Tok {
     }
     return toks;
 }
+
+#scope_file
 
 add_decl :: (path: string, content: string, t: Tok, kind: Decl_Kind, module: string) {
     line0 := t.l0 - 1;

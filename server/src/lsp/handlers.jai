@@ -50,6 +50,8 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     if options_ok {
         compiler := json_get_string(options, "compilerPath");
         if compiler { push_allocator(g_heap); g_compiler = copy_string(compiler); }
+        space, space_ok := json_get(options, "spaceAfterArrayType");
+        if space_ok && space.kind == .BOOLEAN { g_space_after_array_type = space.boolean; }
     }
 
     {
@@ -59,7 +61,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.17.0\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.18.0\"}}");
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -147,11 +149,11 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
 
     matches := find_decls(word);
     if dotted {
-        members: [..] Decl;
+        members: [..]Decl;
         for matches if it.kind == .ENUM_MEMBER array_add(*members, it);
         if members.count > 0 { matches = members; }
     } else {
-        same_file: [..] Decl;
+        same_file: [..]Decl;
         for matches if it.path == path array_add(*same_file, it);
         if same_file.count > 0 { matches = same_file; }
     }
@@ -232,7 +234,7 @@ handle_hover :: (id: Json_Value, params: Json_Value) {
 
     matches := find_decls(word);
     if dotted {
-        members: [..] Decl;
+        members: [..]Decl;
         for matches if it.kind == .ENUM_MEMBER array_add(*members, it);
         if members.count > 0 { matches = members; }
     }
@@ -246,9 +248,33 @@ handle_hover :: (id: Json_Value, params: Json_Value) {
 }
 
 handle_completion :: (id: Json_Value, params: Json_Value) {
-    path     := request_path(params);
-    text, ok := get_text(path);
-    imports: [..] string;
+    path            := request_path(params);
+    line, character := request_position(params);
+    text, ok        := get_text(path);
+
+    if ok && line >= 0 {
+        enum_name := enum_context_type(text, path, line, character);
+        if enum_name {
+            prefix := tprint("%.", enum_name);
+            builder: String_Builder;
+            append(*builder, "[");
+            first := true;
+            for g_decls {
+                if it.kind != .ENUM_MEMBER { continue; }
+                if !starts_with(it.signature, prefix) { continue; }
+                if !first { append(*builder, ","); }
+                first = false;
+                append(*builder, "{");
+                append(*builder, it.completion_base);
+                append(*builder, "}");
+            }
+            append(*builder, "]");
+            respond(id, builder_to_string(*builder));
+            return;
+        }
+    }
+
+    imports: [..]string;
     insert_line := 0;
     if ok {
         imports     = file_imports(text);
@@ -420,7 +446,7 @@ directive_target :: (path: string, text: string, line: s64, character: s64) -> s
     return "";
 }
 
-append_references_in_file :: (builder: *String_Builder, path: string, text: string, word: string, first: *bool, include_declaration: bool, decl_sites: [] Decl) -> s64 {
+append_references_in_file :: (builder: *String_Builder, path: string, text: string, word: string, first: *bool, include_declaration: bool, decl_sites: []Decl) -> s64 {
     is_word :: (c: u8) -> bool {
         return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z")
         || (c >= #char "0" && c <= #char "9") || c == #char "_";

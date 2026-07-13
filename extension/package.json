@@ -1,9 +1,9 @@
 {
   "name": "jai-lsp-scratch",
   "displayName": "Jai LSP Scratch",
-  "description": "Hand-built Jai language server written in Jai",
+  "description": "All-in-one Jai tooling - language server, formatter, and semantic highlighter.",
   "publisher": "mariuzm",
-  "version": "0.17.0",
+  "version": "0.18.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -20,8 +20,13 @@
     "languages": [
       {
         "id": "jai",
-        "aliases": ["Jai", "jai"],
-        "extensions": [".jai"],
+        "aliases": [
+          "Jai",
+          "jai"
+        ],
+        "extensions": [
+          ".jai"
+        ],
         "configuration": "./syntaxes/language-configuration.json"
       }
     ],
@@ -34,7 +39,9 @@
       {
         "scopeName": "markdown.jai.codeblock",
         "path": "./syntaxes/codeblock.json",
-        "injectTo": ["text.html.markdown"],
+        "injectTo": [
+          "text.html.markdown"
+        ],
         "embeddedLanguages": {
           "meta.embedded.block.jai": "jai"
         }
@@ -52,6 +59,11 @@
           "type": "string",
           "default": "",
           "description": "Absolute path to the Jai compiler used for diagnostics (e.g. /path/to/jai/bin/jai-macos). If empty, `jai` is looked up on PATH."
+        },
+        "jaiLspScratch.spaceAfterArrayType": {
+          "type": "boolean",
+          "default": true,
+          "description": "Formatter: keep a space between an array type marker and its element type (`[..] string`, `[] Tag`, `[4] u8`). When false, the space is removed instead (`[..]string`). Requires a window reload to take effect."
         }
       }
     }
