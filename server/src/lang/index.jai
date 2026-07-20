@@ -121,6 +121,21 @@ Local_Hit :: struct {
     name_end: s32;
 }
 
+in_type_position :: (toks: []Tok, i: s64) -> bool {
+    p := i - 1;
+    while p >= 0 {
+        pt := toks[p].type;
+        is_type_prefix := pt == cast(Token_Type) #char "*"
+                       || pt == cast(Token_Type) #char "["
+                       || pt == cast(Token_Type) #char "]"
+                       || pt == .BEGIN_ARRAY_LITERAL
+                       || pt == .DOUBLE_DOT;
+        if !is_type_prefix { break; }
+        p -= 1;
+    }
+    return p >= 0 && toks[p].type == cast(Token_Type) #char ":";
+}
+
 find_local_decl_sites :: (content: string, name: string) -> [..]Local_Hit {
     hits: [..]Local_Hit;
     toks := collect_tokens(content);
@@ -171,6 +186,7 @@ find_scoped_local :: (content: string, name: string, line: s32, col: s32) -> boo
         }
         if t.type != .IDENT || t.name != name { continue; }
         if i > 0 && toks[i-1].type == cast(Token_Type) #char "." { continue; }
+        if in_type_position(toks, i) { continue; }
 
         j := i;
         while j + 2 < toks.count && toks[j+1].type == cast(Token_Type) #char "," && toks[j+2].type == .IDENT { j += 2; }
@@ -264,7 +280,7 @@ semantic_spans :: (content: string, path: string) -> [..]Ident_Span {
         if t.type != .IDENT { continue; }
 
         prev_is_dot := i > 0 && toks[i-1].type == cast(Token_Type) #char ".";
-        if !prev_is_dot {
+        if !prev_is_dot && !in_type_position(toks, i) {
             j := i;
             while j + 2 < toks.count && toks[j+1].type == cast(Token_Type) #char "," && toks[j+2].type == .IDENT { j += 2; }
             is_decl := j + 1 < toks.count && toks[j+1].type == cast(Token_Type) #char ":"
