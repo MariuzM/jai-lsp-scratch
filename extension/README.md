@@ -21,6 +21,8 @@ Jai itself, with a VS Code extension.
 - **Semantic highlighting** — identifiers known to the index are colored by what they are: `enum`,
   `struct`, `enumMember`, `function` — so a type like `Token_Type` gets your theme's enum color at
   every use site, not just its declaration
+- **Persistent index cache** — unchanged workspace and compiler-module files reuse their
+  declarations across editor restarts, with per-file modification-time and size invalidation
 - **Diagnostics** — runs the Jai compiler on your entry file (auto-detected via `main ::`) on save
   and surfaces errors inline
 - **Formatter** — see below
@@ -282,7 +284,7 @@ Known limits at this scale:
 | completion | 463 ms, 332k items (~60 MB) | every declaration is sent on every request — needs server-side prefix filtering with `isIncomplete`                          |
 | references | 1.9 s                       | re-reads all workspace files from disk per request — needs the file-content cache we already build during indexing           |
 | memory     | ~655 MB RSS                 | ~2 KB per declaration (per-decl heap copies of path/signature/completion JSON) — path interning would cut this substantially |
-| startup    | 41.8 s                      | single-threaded lex + index of 1M lines, one-time per window                                                                 |
+| startup    | cached per source file      | unchanged workspace and compiler-module declarations are restored across editor restarts                                     |
 
 Below ~100k lines none of these limits are noticeable; on a typical project every request is
 effectively instant.
@@ -294,19 +296,18 @@ Concrete changes to come back to, roughly in order of impact.
 **Performance at scale** (each maps to a measured limit above)
 
 - [ ] **Completion: server-side filtering.** Match items against the word being typed, return the
-      best ~1,000 with `isIncomplete: true` so the editor re-queries as you type. Fixes the
-      463 ms / 60 MB response on huge workspaces and shrinks the 17 ms on normal ones. The
-      per-declaration JSON fragments are already precomputed, so this is a filter loop in
-      `handle_completion`.
+      best ~1,000 with `isIncomplete: true` so the editor re-queries as you type. Fixes the 463 ms /
+      60 MB response on huge workspaces and shrinks the 17 ms on normal ones. The per-declaration
+      JSON fragments are already precomputed, so this is a filter loop in `handle_completion`.
 - [ ] **References: in-memory file cache.** `scan_workspace` already reads every file once and
-      throws the text away; keeping it (~35 MB per 1M lines) turns the per-request disk sweep
-      (1.9 s) into an in-memory scan. Needs invalidation from `didChange`/`didSave` only.
-- [ ] **Memory: intern per-file strings.** Every declaration heap-copies its `path`; one shared
-      copy per file would cut a large slice of the ~2 KB/decl footprint. Same idea for dropping
+      throws the text away; keeping it (~35 MB per 1M lines) turns the per-request disk sweep (1.9
+      s) into an in-memory scan. Needs invalidation from `didChange`/`didSave` only.
+- [ ] **Memory: intern per-file strings.** Every declaration heap-copies its `path`; one shared copy
+      per file would cut a large slice of the ~2 KB/decl footprint. Same idea for dropping
       `signature` where `completion_base` already embeds it.
-- [ ] **Startup: parallel or lazy indexing.** 41.8 s for 1M lines is single-threaded lexing; the
-      Thread module could fan out per-file indexing, or module indexing could become lazy
-      (index a module on first lookup miss instead of at startup).
+- [x] **Startup: linear declaration extraction and persistent per-file caching.** Declaration
+      signatures use a single line-offset pass instead of rescanning the source for every symbol,
+      and unchanged files restore their declarations from a versioned cache on the next launch.
 
 **Resolution quality**
 
@@ -322,9 +323,9 @@ Concrete changes to come back to, roughly in order of impact.
 
 **Protocol & plumbing**
 
-- [ ] **Incremental sync.** The server requests full-document sync; every keystroke ships the
-      whole file. `TextDocumentSyncKind.Incremental` would cut didChange traffic on big files
-      (the 109 ms reindex of a 13k-line file includes receiving all of it).
+- [ ] **Incremental sync.** The server requests full-document sync; every keystroke ships the whole
+      file. `TextDocumentSyncKind.Incremental` would cut didChange traffic on big files (the 109 ms
+      reindex of a 13k-line file includes receiving all of it).
 - [ ] **External file watching.** Edits made outside the editor (git checkout, generators) aren't
       reindexed until the file is opened; a `workspace/didChangeWatchedFiles` registration would
       cover this.
@@ -350,8 +351,8 @@ code --install-extension jai-lsp-scratch-<version>.vsix
 
 or in VS Code: Extensions panel → `...` menu → _Install from VSIX..._
 
-The extension bundles a prebuilt server binary (macOS arm64; more platforms as they get built). No
-further setup is needed for navigation features.
+The extension bundles a prebuilt server binary for its release platform. No further setup is needed
+for navigation features.
 
 For **diagnostics**, the server needs your Jai compiler. It tries `jai` on PATH; if that doesn't
 resolve, set:
@@ -372,6 +373,16 @@ resolve, set:
 Requires a Jai compiler (closed beta) on PATH, plus `node`/`npm` for packaging (and `watchexec` for
 `make dev`). First time: `cd extension && npm install`.
 
+The build and bundle steps are implemented by the Jai metaprogram and work from any shell:
+
+```
+jai server/build.jai - build   # compile -> server/build/jai-lsp-scratch[.exe]
+jai server/build.jai - bundle  # build + copy and verify the current-platform binary
+jai server/build.jai - clean   # remove build and VSIX artifacts
+```
+
+The Makefile provides convenience wrappers around those same Jai targets:
+
 ```
 make build      # compile the server -> server/build/jai-lsp-scratch
 make dev        # rebuild on every change under server/src/ (watchexec)
@@ -382,12 +393,13 @@ make release    # package + create/refresh the GitHub release for the current ve
 make clean      # remove build artifacts and .vsix files
 ```
 
-All build artifacts (executable, dSYM, intermediates) go to `server/build/` — `server/build.jai` is
-a metaprogram that sets `output_path` and `intermediate_path`.
+All build artifacts (executable, dSYM, intermediates) go to `server/build/`. `server/build.jai`
+creates and monitors the compiler workspace, bundles the host platform binary with Jai's native file
+APIs, and verifies the copy byte-for-byte.
 
-Dev loop: set `jaiLspScratch.serverPath` to `<repo>/server/build/jai-lsp-scratch`, run `make dev`,
-and reload the VS Code window after each rebuild — no reinstall needed. Clear the setting to go back
-to the bundled binary.
+Dev loop: set `jaiLspScratch.serverPath` to `<repo>/server/build/jai-lsp-scratch` (or the `.exe` on
+Windows), run the Jai build target after changes, and reload the VS Code window — no reinstall
+needed. Clear the setting to go back to the bundled binary.
 
 ## Credits
 

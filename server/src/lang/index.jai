@@ -21,11 +21,14 @@ Decl :: struct {
 
 g_decls:            [..]Decl;
 g_decls_generation: s64;
+g_indexed_files:    Table(string, bool);
 
-index_file :: (path: string, content: string, module := "") {
-    remove_decls_for_file(path);
+index_file :: (path: string, content: string, module := "") -> s64 {
+    prepare_file_index(path);
+    first_decl := g_decls.count;
 
-    toks := collect_tokens(content);
+    toks        := collect_tokens(content);
+    line_starts := collect_line_starts(content);
 
     curly_stack: [..]bool;
     opaque_depth            := 0;
@@ -77,15 +80,27 @@ index_file :: (path: string, content: string, module := "") {
                         else if n == cast(Token_Type) #char "("                 { kind = .PROCEDURE; }
                         else if n == .KEYWORD_INLINE || n == .KEYWORD_NO_INLINE { kind = .PROCEDURE; }
                     }
-                    add_decl(path, content, t, kind, module);
+                    add_decl(path, content, line_starts, t, kind, module);
                     if kind == .ENUM { index_enum_members(path, toks, i + 3, t.name, module); }
                 } else {
-                    add_decl(path, content, t, .VARIABLE, module);
+                    add_decl(path, content, line_starts, t, .VARIABLE, module);
                 }
             }
         }
         i += 1;
     }
+    return first_decl;
+}
+
+prepare_file_index :: (path: string) {
+    _, already_indexed := table_find(*g_indexed_files, path);
+    if already_indexed {
+        remove_decls_for_file(path);
+        return;
+    }
+
+    push_allocator(g_heap);
+    table_set(*g_indexed_files, copy_string(path), true);
 }
 
 remove_decls_for_file :: (path: string) {
@@ -126,10 +141,10 @@ in_type_position :: (toks: []Tok, i: s64) -> bool {
     while p >= 0 {
         pt := toks[p].type;
         is_type_prefix := pt == cast(Token_Type) #char "*"
-                       || pt == cast(Token_Type) #char "["
-                       || pt == cast(Token_Type) #char "]"
-                       || pt == .BEGIN_ARRAY_LITERAL
-                       || pt == .DOUBLE_DOT;
+        || pt == cast(Token_Type) #char "["
+        || pt == cast(Token_Type) #char "]"
+        || pt == .BEGIN_ARRAY_LITERAL
+        || pt == .DOUBLE_DOT;
         if !is_type_prefix { break; }
         p -= 1;
     }
@@ -223,6 +238,23 @@ get_line :: (content: string, line0: s64) -> string {
         if content[i] == #char "\n" { current += 1; }
     }
     return "";
+}
+
+collect_line_starts :: (content: string) -> [..]s64 {
+    starts: [..]s64;
+    array_add(*starts, 0);
+    for i: 0..content.count-1 {
+        if content[i] == #char "\n" { array_add(*starts, i + 1); }
+    }
+    return starts;
+}
+
+get_indexed_line :: (content: string, starts: []s64, line0: s64) -> string {
+    if line0 < 0 || line0 >= starts.count { return ""; }
+    start := starts[line0];
+    end   := ifx line0 + 1 < starts.count then starts[line0 + 1] - 1 else content.count;
+    if end > start && content[end - 1] == #char "\r" { end -= 1; }
+    return slice(content, start, end - start);
 }
 
 Ident_Span :: struct {
@@ -403,6 +435,17 @@ Tok :: struct {
 collect_tokens :: (content: string) -> [..]Tok {
     toks:  [..]Tok;
     lexer: Lexer;
+
+    recovered_unsigned_exponent := false;
+    previous_logger             := context.logger;
+    previous_logger_data        := context.logger_data;
+    context.logger      = index_lexer_logger;
+    context.logger_data = *recovered_unsigned_exponent;
+    defer {
+        context.logger      = previous_logger;
+        context.logger_data = previous_logger_data;
+    }
+
     set_input_from_string(*lexer, content);
     while 1 {
         token := peek_next_token(*lexer);
@@ -415,16 +458,30 @@ collect_tokens :: (content: string) -> [..]Tok {
         if token.type == .IDENT { tok.name = copy_string(token.ident_value.name); }
         array_add(*toks, tok);
         eat_token(*lexer);
-        if lexer.reported_error { break; }
+        if lexer.reported_error {
+            if !recovered_unsigned_exponent { break; }
+            lexer.reported_error        = false;
+            recovered_unsigned_exponent = false;
+        }
     }
     return toks;
 }
 
+index_lexer_logger :: (message: string, data: *void, info: Log_Info) {
+    UNSIGNED_EXPONENT_BUG :: "'e' in a float literal must be followed by + or - or a numerical digit.\n";
+    if message == UNSIGNED_EXPONENT_BUG {
+        recovered := cast(*bool) data;
+        recovered.* = true;
+        return;
+    }
+    stderr_logger(message, null, info);
+}
+
 #scope_file
 
-add_decl :: (path: string, content: string, t: Tok, kind: Decl_Kind, module: string) {
+add_decl :: (path: string, content: string, line_starts: []s64, t: Tok, kind: Decl_Kind, module: string) {
     line0 := t.l0 - 1;
-    sig   := trim(get_line(content, line0));
+    sig   := trim(get_indexed_line(content, line_starts, line0));
     base  := completion_base_json(t.name, kind, sig, module);
 
     push_allocator(g_heap);

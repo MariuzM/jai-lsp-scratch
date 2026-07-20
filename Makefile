@@ -1,17 +1,14 @@
-SERVER_BIN := server/build/jai-lsp-scratch
-BUNDLED    := extension/bin/jai-lsp-scratch-darwin-arm64
 VERSION    := $(shell node -p "require('./extension/package.json').version")
 VSIX       := extension/jai-lsp-scratch-$(VERSION).vsix
 
 build:
-	cd server && jai build.jai
+	jai server/build.jai - build
 
 dev:
 	watchexec -r -c -w server/src -w server/build.jai -e jai -- make build
 
-bundle: build
-	mkdir -p extension/bin
-	cp $(SERVER_BIN) $(BUNDLED)
+bundle:
+	jai server/build.jai - bundle
 
 package: bundle
 	cd extension && npx @vscode/vsce package
@@ -24,6 +21,6 @@ release: package
 	gh release upload v$(VERSION) $(VSIX) --clobber
 
 clean:
-	rm -rf server/build extension/*.vsix
+	jai server/build.jai - clean
 
 .PHONY: build dev bundle package install release clean

@@ -3,7 +3,7 @@
   "displayName": "Jai LSP Scratch",
   "description": "All-in-one Jai tooling - language server, formatter, and semantic highlighter.",
   "publisher": "mariuzm",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -58,7 +58,7 @@
         "jaiLspScratch.compilerPath": {
           "type": "string",
           "default": "",
-          "description": "Absolute path to the Jai compiler used for diagnostics (e.g. /path/to/jai/bin/jai-macos). If empty, `jai` is looked up on PATH."
+          "description": "Absolute path to the Jai compiler used for diagnostics (for example, /path/to/jai/bin/jai-macos or C:/path/to/jai.exe). If empty, `jai` is looked up on PATH."
         },
         "jaiLspScratch.spaceAfterArrayType": {
           "type": "boolean",

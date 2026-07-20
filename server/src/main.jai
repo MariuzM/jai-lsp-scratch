@@ -5,18 +5,28 @@
 #import "Jai_Lexer";
 #import "Hash_Table";
 #import "Process";
-Posix :: #import "POSIX";
+#load "platform.jai";
 #load "lsp/rpc.jai";
 #load "lsp/json.jai";
 #load "lsp/handlers.jai";
 #load "lang/workspace.jai";
 #load "lang/index.jai";
+#load "lang/cache.jai";
 #load "lang/complete.jai";
 #load "lang/check.jai";
 #load "lang/format.jai";
 #load "lang/format_split.jai";
 #load "lang/format_align.jai";
 #load "lang/format_html.jai";
+
+#if OS == .WINDOWS {
+    Windows      :: #import "Windows";
+    Windows_Utf8 :: #import "Windows_Utf8";
+
+} else {
+    Posix :: #import "POSIX";
+
+}
 
 g_heap: Allocator;
 g_root: string;

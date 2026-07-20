@@ -1,8 +1,6 @@
 g_entry_file:      string;
 g_last_diag_paths: [..]string;
 
-CHECK_OUTPUT_DIR :: "/tmp/jai-lsp-scratch";
-
 Diag :: struct {
     path:     string;
     line:     s32;
@@ -13,10 +11,19 @@ Diag :: struct {
 
 run_diagnostics :: () {
     if !g_entry_file { return; }
-    make_directory_if_it_does_not_exist(CHECK_OUTPUT_DIR);
+    temporary_directory := platform_temporary_directory();
+    if !temporary_directory {
+        log_err("could not locate the system temporary directory");
+        return;
+    }
+    output_dir := tprint("%/jai-lsp-scratch", temporary_directory);
+    if !make_directory_if_it_does_not_exist(output_dir) {
+        log_err("could not create diagnostics output directory %", output_dir);
+        return;
+    }
 
     result, output, error_output := run_command(
-        g_compiler, g_entry_file, "-exe", "check_bin", "-output_path", CHECK_OUTPUT_DIR,
+        g_compiler, g_entry_file, "-exe", "check_bin", "-output_path", output_dir,
         capture_and_return_output = true, timeout_ms = 30000
     );
 

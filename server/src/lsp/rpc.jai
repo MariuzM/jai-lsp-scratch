@@ -45,12 +45,7 @@ log_err :: (format: string, args: .. Any) {
 }
 
 write_all :: (fd: s32, s: string) {
-    offset := 0;
-    while offset < s.count {
-        n := Posix.write(fd, s.data + offset, cast(u64)(s.count - offset));
-        if n <= 0 { break; }
-        offset += n;
-    }
+    write_string(s, to_standard_error = fd == 2);
 }
 
 #scope_file
@@ -96,7 +91,7 @@ read_more :: () -> bool {
         push_allocator(g_heap);
         array_reserve(*read_buffer, read_buffer.count + CHUNK);
     }
-    n := Posix.read(0, read_buffer.data + read_buffer.count, CHUNK);
+    n := platform_read_stdin(read_buffer.data + read_buffer.count, CHUNK);
     if n <= 0 { return false; }
     read_buffer.count += n;
     return true;

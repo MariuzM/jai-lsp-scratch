@@ -22,6 +22,8 @@ shipped as a VS Code extension (which also bundles a TextMate grammar for syntax
 - **Document / workspace symbols**
 - **Semantic highlighting** — identifiers colored by what they are (`enum`, `struct`, `enumMember`,
   `function`) at every use site
+- **Persistent index cache** — unchanged workspace and compiler-module files reuse their declarations
+  across editor restarts, with per-file modification-time and size invalidation
 - **Diagnostics** — runs the Jai compiler on your entry file on save and surfaces errors inline
 - **Formatter** — every rule shown below, with real output
 
@@ -363,9 +365,9 @@ Concrete changes to come back to, roughly in order of impact.
 - [ ] **Memory: intern per-file strings.** Every declaration heap-copies its `path`; one shared copy
       per file would cut a large slice of the ~2 KB/decl footprint (~655 MB RSS at 1M lines). Same
       idea for dropping `signature` where `completion_base` already embeds it.
-- [ ] **Startup: parallel or lazy indexing.** 41.8 s for 1M lines is single-threaded lexing; the
-      Thread module could fan out per-file indexing, or module indexing could become lazy (index a
-      module on first lookup miss instead of at startup).
+- [x] **Startup: linear declaration extraction and persistent per-file caching.** Declaration
+      signatures use a single line-offset pass instead of rescanning the source for every symbol,
+      and unchanged files restore their declarations from a versioned cache on the next launch.
 
 **Resolution quality**
 
@@ -409,8 +411,9 @@ code --install-extension jai-lsp-scratch-<version>.vsix
 
 or in VS Code: Extensions panel → `...` menu → _Install from VSIX..._
 
-The extension bundles a prebuilt server binary (macOS arm64). For **diagnostics**, the server needs
-your Jai compiler — it tries `jai` on PATH; otherwise set `jaiLspScratch.compilerPath`.
+The extension bundles a prebuilt server binary for its release platform. For **diagnostics**, the
+server needs your Jai compiler — it tries `jai` on PATH; otherwise set
+`jaiLspScratch.compilerPath`.
 
 ## Settings
 
@@ -424,6 +427,16 @@ your Jai compiler — it tries `jai` on PATH; otherwise set `jaiLspScratch.compi
 Requires a Jai compiler (closed beta) on PATH, plus `node`/`npm` for packaging (and `watchexec` for
 `make dev`). First time: `cd extension && npm install`.
 
+The build and bundle steps are implemented by the Jai metaprogram and work from any shell:
+
+```
+jai server/build.jai - build   # compile -> server/build/jai-lsp-scratch[.exe]
+jai server/build.jai - bundle  # build + copy and verify the current-platform binary
+jai server/build.jai - clean   # remove build and VSIX artifacts
+```
+
+The Makefile provides convenience wrappers around those same Jai targets:
+
 ```
 make build      # compile the server -> server/build/jai-lsp-scratch
 make dev        # rebuild on every change under server/src/ (watchexec)
@@ -434,8 +447,9 @@ make release    # package + create/refresh the GitHub release for the current ve
 make clean      # remove build artifacts and .vsix files
 ```
 
-Dev loop: set `jaiLspScratch.serverPath` to `<repo>/server/build/jai-lsp-scratch`, run `make dev`,
-and reload the VS Code window after each rebuild — no reinstall needed.
+Dev loop: set `jaiLspScratch.serverPath` to `<repo>/server/build/jai-lsp-scratch` (or the `.exe` on
+Windows), run the Jai build target after changes, and reload the VS Code window — no reinstall
+needed.
 
 ## Credits
 

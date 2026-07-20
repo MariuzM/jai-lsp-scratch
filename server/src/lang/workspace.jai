@@ -90,7 +90,7 @@ scan_workspace :: () {
         if found_build || found_out { continue; }
         content, ok := read_entire_file(it);
         if !ok { continue; }
-        index_file(it, content);
+        index_file_content_cached(it, content);
         detect_entry_file(it, content);
         add_workspace_file(it);
         index_imported_modules(content);
@@ -128,39 +128,7 @@ modules_root :: () -> string {
 }
 
 resolve_compiler_path :: () {
-    path := g_compiler;
-
-    has_slash, _ := contains(path, #char "/");
-    if !has_slash {
-        env := Posix.getenv("PATH".data);
-        if env {
-            remaining := to_string(env);
-            while remaining.count > 0 {
-                dir   := remaining;
-                colon := find_index_from_left(remaining, #char ":");
-                if colon == -1 {
-                    remaining = "";
-                } else {
-                    dir       = slice(remaining, 0, colon);
-                    remaining = slice(remaining, colon + 1, remaining.count - colon - 1);
-                }
-                if dir.count == 0 { continue; }
-                candidate := tprint("%/%", dir, g_compiler);
-                if file_exists(candidate) { path = candidate; break; }
-            }
-        }
-    }
-
-    for 1..8 {
-        buffer: [4096]u8;
-        n := Posix.readlink(temp_c_string(path), buffer.data, 4096);
-        if n <= 0 { break; }
-        link: string;
-        link.data  = buffer.data;
-        link.count = n;
-        if link[0] == #char "/" { path = tprint("%", link); }
-        else                    { path = tprint("%/%", dir_of(path), link); }
-    }
+    path := platform_resolve_executable(g_compiler);
 
     if path != g_compiler {
         push_allocator(g_heap);
@@ -188,14 +156,25 @@ uri_to_path :: (uri: string) -> string {
         append(*builder, c);
         i += 1;
     }
-    return builder_to_string(*builder);
+    result := builder_to_string(*builder);
+    #if OS == .WINDOWS {
+        if result.count >= 3 && result[0] == #char "/" && result[2] == #char ":" {
+            result = slice(result, 1, result.count - 1);
+        }
+        absolute, success := get_absolute_path(result);
+        if success { result = absolute; }
+        path_overwrite_separators(result, #char "/");
+    }
+    return result;
 }
 
 path_to_uri :: (path: string) -> string {
     builder: String_Builder;
-    append(*builder, "file://");
+    #if OS == .WINDOWS append(*builder, "file:///");
+    else append(*builder, "file://");
     for i: 0..path.count-1 {
         c := path[i];
+        #if OS == .WINDOWS { if c == #char "\\" { c = #char "/"; } }
         if c == #char " " { append(*builder, "%20"); }
         else              { append(*builder, c); }
     }
@@ -220,7 +199,7 @@ display_path :: (path: string) -> string {
 dir_of :: (path: string) -> string {
     i := path.count - 1;
     while i >= 0 {
-        if path[i] == #char "/" { return slice(path, 0, i); }
+        if path[i] == #char "/" || path[i] == #char "\\" { return slice(path, 0, i); }
         i -= 1;
     }
     return path;
@@ -266,9 +245,7 @@ index_module :: (name: string) {
 }
 
 index_module_file :: (path: string, module: string) {
-    content, ok := read_entire_file(path);
-    if !ok { return; }
-    index_file(path, content, module);
+    index_file_disk_cached(path, module);
 }
 
 hex_digit :: (c: u8) -> s32 {
