@@ -188,13 +188,19 @@ describe :: (t: Token_Kind) -> string {
 
 ### 10. Braced `if` / `else` chain alignment
 
-Single-line braced chains align their blocks one space after the longest condition.
+Single-line braced chains align their blocks one space after the longest condition. Consecutive
+single-line braced `if` statements at the same indent align together the same way.
 
 ```jai
 resolve :: (link: string, path: string) -> string {
     if link[0] == #char "/" { result = copy_string(link); }
     else                    { result = tprint("%/%", dir_of(path), link); }
     return result;
+}
+
+for args {
+    if it == "--format"                    { format_only = true; }
+    if it == "--no-space-after-array-type" { g_space_after_array_type = false; }
 }
 ```
 

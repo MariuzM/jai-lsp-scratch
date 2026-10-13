@@ -399,12 +399,13 @@ align_if_else_chains :: (lines: []Out_Line) {
         if first.kind != .IF { i += 1; continue; }
         indent := lines[i].indent;
 
-        j := i + 1;
-        while j < lines.count && lines[j].indent == indent {
-            next := parse_chain_line(lines[j]);
-            if next.kind != .ELSE_IF && next.kind != .ELSE { break; }
-            j += 1;
-            if next.kind == .ELSE { break; }
+        j := chain_end(lines, i, indent);
+        if is_braced_chain(lines, i, j) {
+            while j < lines.count && lines[j].indent == indent && parse_chain_line(lines[j]).kind == .IF {
+                next_end := chain_end(lines, j, indent);
+                if !is_braced_chain(lines, j, next_end) { break; }
+                j = next_end;
+            }
         }
 
         max_prefix := 0;
@@ -423,6 +424,25 @@ align_if_else_chains :: (lines: []Out_Line) {
         }
         i = j;
     }
+}
+
+chain_end :: (lines: []Out_Line, start: s64, indent: s64) -> s64 {
+    j := start + 1;
+    while j < lines.count && lines[j].indent == indent {
+        next := parse_chain_line(lines[j]);
+        if next.kind != .ELSE_IF && next.kind != .ELSE { break; }
+        j += 1;
+        if next.kind == .ELSE { break; }
+    }
+    return j;
+}
+
+is_braced_chain :: (lines: []Out_Line, start: s64, end: s64) -> bool {
+    for k: start..end-1 {
+        p := parse_chain_line(lines[k]);
+        if p.kind == .NONE || p.stmt[0] != #char "{" { return false; }
+    }
+    return true;
 }
 
 strip_then_before_jump :: (lines: []Out_Line) {
