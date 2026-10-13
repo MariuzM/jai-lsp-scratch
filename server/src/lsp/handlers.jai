@@ -61,7 +61,7 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.20.0\"}}");
+    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.21.0\"}}");
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -82,8 +82,7 @@ handle_did_open :: (params: Json_Value) {
     doc, ok := json_get_object(params, "textDocument");
     if !ok { return; }
     path := uri_to_path(json_get_string(doc, "uri"));
-    text := json_get_string(doc, "text");
-    set_doc(path, text);
+    text := set_doc(path, json_get_string(doc, "text"));
     index_file(path, text);
     detect_entry_file(path, text);
     add_workspace_file(path);
@@ -96,8 +95,7 @@ handle_did_change :: (params: Json_Value) {
     path                := uri_to_path(json_get_string(doc, "uri"));
     changes, changes_ok := json_get(params, "contentChanges");
     if !changes_ok || changes.kind != .ARRAY || changes.elements.count == 0 { return; }
-    text := json_get_string(changes.elements[changes.elements.count - 1], "text");
-    set_doc(path, text);
+    text := set_doc(path, json_get_string(changes.elements[changes.elements.count - 1], "text"));
     index_file(path, text);
     index_imported_modules(text);
 }
@@ -140,7 +138,7 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
     if !word { respond(id, "null"); return; }
 
     if !dotted {
-        local_found, local_hit := find_scoped_local(text, word, cast(s32) line, cast(s32) character);
+        local_found, local_hit := find_scoped_local(path, text, word, cast(s32) line, cast(s32) character);
         if local_found {
             respond(id, tprint("[{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}]",
                 path_to_uri(path), local_hit.line, local_hit.col, local_hit.line, local_hit.name_end));
@@ -170,7 +168,7 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
         return;
     }
 
-    hits := find_local_decl_sites(text, word);
+    hits := find_local_decl_sites(path, text, word);
     if hits.count == 0 { respond(id, "null"); return; }
     chosen := -1;
     for hits {
@@ -224,7 +222,7 @@ handle_hover :: (id: Json_Value, params: Json_Value) {
     if !word { respond(id, "null"); return; }
 
     if !dotted {
-        local_found, local_hit := find_scoped_local(text, word, cast(s32) line, cast(s32) character);
+        local_found, local_hit := find_scoped_local(path, text, word, cast(s32) line, cast(s32) character);
         if local_found {
             sig   := trim(get_line(text, local_hit.line));
             value := tprint("```jai\n%\n```\n\n%:%", sig, display_path(path), local_hit.line + 1);
@@ -260,13 +258,12 @@ handle_completion :: (id: Json_Value, params: Json_Value) {
             builder: String_Builder;
             append(*builder, "[");
             first := true;
-            for g_decls {
+            for file: g_file_indexes for file.decls {
                 if it.kind != .ENUM_MEMBER { continue; }
                 if !starts_with(it.signature, prefix) { continue; }
                 if !first { append(*builder, ","); }
                 first = false;
-                append(*builder, "{");
-                append(*builder, it.completion_base);
+                append_completion_item(*builder, it);
                 append(*builder, "}");
             }
             append(*builder, "]");
@@ -277,29 +274,32 @@ handle_completion :: (id: Json_Value, params: Json_Value) {
 
     imports: [..]string;
     insert_line := 0;
+    prefix      := "";
     if ok {
         imports     = file_imports(text);
         insert_line = import_insert_line(text);
+        if line >= 0 { prefix = completion_prefix(text, line, character); }
     }
 
     builder: String_Builder;
     append(*builder, "[");
-    for g_decls {
-        if it_index > 0 { append(*builder, ","); }
-        needs_import := false;
-        if it.module.count > 0 {
-            imported := false;
-            for existing: imports if existing == it.module then imported = true;
-            needs_import = !imported;
-        }
-        append(*builder, "{");
-        append(*builder, it.completion_base);
-        if needs_import {
-            print_to_builder(*builder,
+    first := true;
+    for file: g_file_indexes {
+        import_edit := "";
+        if file.module.count > 0 {
+            import_edit = tprint(
                 ",\"additionalTextEdits\":[{\"range\":{\"start\":{\"line\":%,\"character\":0},\"end\":{\"line\":%,\"character\":0}},\"newText\":\"#import \\\"%\\\";\\n\"}]",
-                insert_line, insert_line, json_escape(it.module));
+                insert_line, insert_line, json_escape(file.module));
+            for imports if it == file.module { import_edit = ""; break; }
         }
-        append(*builder, "}");
+        for file.decls {
+            if !matches_completion_prefix(it.name, prefix) { continue; }
+            if !first { append(*builder, ","); }
+            first = false;
+            append_completion_item(*builder, it);
+            append(*builder, import_edit);
+            append(*builder, "}");
+        }
     }
     append(*builder, "]");
     respond(id, builder_to_string(*builder));
@@ -349,12 +349,8 @@ handle_workspace_symbol :: (id: Json_Value, params: Json_Value) {
     builder: String_Builder;
     append(*builder, "[");
     first := true;
-    for g_decls {
-        if query {
-            name_lower := to_lower_copy(it.name);
-            found, _   := contains(name_lower, query);
-            if !found { continue; }
-        }
+    for file: g_file_indexes for file.decls {
+        if query && !contains_ignore_case(it.name, query) { continue; }
         if !first { append(*builder, ","); }
         first = false;
         print_to_builder(*builder, "{\"name\":\"%\",\"kind\":%,\"location\":", json_escape(it.name), symbol_kind_number(it.kind));
@@ -391,18 +387,13 @@ word_at :: (text: string, line: s64, character: s64) -> string, bool {
     position := offset + character;
     if position > text.count { return "", false; }
 
-    is_word :: (c: u8) -> bool {
-        return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z")
-        || (c >= #char "0" && c <= #char "9") || c == #char "_";
-    }
-
     start := position;
-    while start > offset && is_word(text[start - 1]) { start -= 1; }
+    while start > offset && is_word_char(text[start - 1]) { start -= 1; }
     end := position;
-    while end < text.count && text[end] != #char "\n" && is_word(text[end]) { end += 1; }
+    while end < text.count && text[end] != #char "\n" && is_word_char(text[end]) { end += 1; }
     if end <= start { return "", false; }
     dotted := start > 0 && text[start - 1] == #char ".";
-    if dotted && start > 1 && is_word(text[start - 2]) { dotted = false; }
+    if dotted && start > 1 && is_word_char(text[start - 2]) { dotted = false; }
     return slice(text, start, end - start), dotted;
 }
 
@@ -448,11 +439,6 @@ directive_target :: (path: string, text: string, line: s64, character: s64) -> s
 }
 
 append_references_in_file :: (builder: *String_Builder, path: string, text: string, word: string, first: *bool, include_declaration: bool, decl_sites: []Decl) -> s64 {
-    is_word :: (c: u8) -> bool {
-        return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z")
-        || (c >= #char "0" && c <= #char "9") || c == #char "_";
-    }
-
     found := 0;
     uri   := path_to_uri(path);
     i     := 0;
@@ -461,9 +447,9 @@ append_references_in_file :: (builder: *String_Builder, path: string, text: stri
     while i < text.count {
         c := text[i];
         if c == #char "\n" { line += 1; col = 0; i += 1; continue; }
-        if is_word(c) && (i == 0 || !is_word(text[i-1])) && i + word.count <= text.count
+        if c == word[0] && (i == 0 || !is_word_char(text[i-1])) && i + word.count <= text.count
         && slice(text, i, word.count) == word
-        && (i + word.count == text.count || !is_word(text[i + word.count])) {
+        && (i + word.count == text.count || !is_word_char(text[i + word.count])) {
             skip := false;
             if !include_declaration {
                 for decl_sites {

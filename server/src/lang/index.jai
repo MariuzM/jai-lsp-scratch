@@ -8,26 +8,30 @@ Decl_Kind :: enum {
 }
 
 Decl :: struct {
-    name:            string;
-    path:            string;
-    line:            s32;
-    col:             s32;
-    name_end:        s32;
-    kind:            Decl_Kind;
-    signature:       string;
-    module:          string;
-    completion_base: string;
+    name:      string;
+    path:      string;
+    module:    string;
+    signature: string;
+    line:      s32;
+    col:       s32;
+    name_end:  s32;
+    kind:      Decl_Kind;
 }
 
-g_decls:            [..]Decl;
-g_decls_generation: s64;
-g_indexed_files:    Table(string, bool);
+File_Index :: struct {
+    path:   string;
+    module: string;
+    blob:   string;
+    decls:  [..]Decl;
+}
 
-index_file :: (path: string, content: string, module := "") -> s64 {
-    prepare_file_index(path);
-    first_decl := g_decls.count;
+g_file_indexes:     [..]*File_Index;
+g_names_generation: s64;
 
-    toks        := collect_tokens(content);
+index_file :: (path: string, content: string, module := "", size: s64 = 0, modtime := Apollo_Time.{}) -> *File_Index {
+    found: [..]Decl;
+
+    toks        := doc_tokens(path, content);
     line_starts := collect_line_starts(content);
 
     curly_stack: [..]bool;
@@ -80,54 +84,73 @@ index_file :: (path: string, content: string, module := "") -> s64 {
                         else if n == cast(Token_Type) #char "("                 { kind = .PROCEDURE; }
                         else if n == .KEYWORD_INLINE || n == .KEYWORD_NO_INLINE { kind = .PROCEDURE; }
                     }
-                    add_decl(path, content, line_starts, t, kind, module);
-                    if kind == .ENUM { index_enum_members(path, toks, i + 3, t.name, module); }
+                    array_add(*found, make_decl(content, line_starts, t, kind));
+                    if kind == .ENUM { index_enum_members(*found, toks, i + 3, t.name); }
                 } else {
-                    add_decl(path, content, line_starts, t, .VARIABLE, module);
+                    array_add(*found, make_decl(content, line_starts, t, .VARIABLE));
                 }
             }
         }
         i += 1;
     }
-    return first_decl;
+
+    header: Index_Header;
+    header.path    = path;
+    header.module  = module;
+    header.size    = size;
+    header.modtime = modtime;
+    blob        := encode_index(header, found);
+    _, decls, _ := decode_index(blob);
+    return install_file_index(path, module, blob, decls);
 }
 
-prepare_file_index :: (path: string) {
-    _, already_indexed := table_find(*g_indexed_files, path);
-    if already_indexed {
-        remove_decls_for_file(path);
-        return;
-    }
-
+install_file_index :: (path: string, module: string, blob: string, decls: [..]Decl) -> *File_Index {
     push_allocator(g_heap);
-    table_set(*g_indexed_files, copy_string(path), true);
+    file := find_file_index(path);
+    if !file {
+        file      = New(File_Index);
+        file.path = copy_string(path);
+        array_add(*g_file_indexes, file);
+        table_add(*g_file_index_lookup, file.path, file);
+    }
+    if !same_names(file.decls, decls) { g_names_generation += 1; }
+    if file.module != module {
+        free(file.module);
+        file.module = copy_string(module);
+    }
+    free(file.blob);
+    array_free(file.decls);
+    file.blob  = blob;
+    file.decls = decls;
+    for * file.decls {
+        it.path   = file.path;
+        it.module = file.module;
+    }
+    return file;
 }
 
-remove_decls_for_file :: (path: string) {
-    push_allocator(g_heap);
-    for g_decls {
-        if it.path == path {
-            free(it.name);
-            free(it.path);
-            free(it.signature);
-            free(it.module);
-            free(it.completion_base);
-            remove it;
-        }
-    }
-    g_decls_generation += 1;
+find_file_index :: (path: string) -> *File_Index {
+    file := table_find_pointer(*g_file_index_lookup, path);
+    if !file { return null; }
+    return file.*;
 }
 
 find_decls :: (name: string) -> [..]Decl {
     results: [..]Decl;
-    for g_decls if it.name == name array_add(*results, it);
+    for file: g_file_indexes for file.decls if it.name == name array_add(*results, it);
     return results;
 }
 
-decls_in_file :: (path: string) -> [..]Decl {
-    results: [..]Decl;
-    for g_decls if it.path == path array_add(*results, it);
-    return results;
+decls_in_file :: (path: string) -> []Decl {
+    file := find_file_index(path);
+    if !file { return .[]; }
+    return file.decls;
+}
+
+decl_count :: () -> s64 {
+    count := 0;
+    for g_file_indexes count += it.decls.count;
+    return count;
 }
 
 Local_Hit :: struct {
@@ -151,9 +174,9 @@ in_type_position :: (toks: []Tok, i: s64) -> bool {
     return p >= 0 && toks[p].type == cast(Token_Type) #char ":";
 }
 
-find_local_decl_sites :: (content: string, name: string) -> [..]Local_Hit {
+find_local_decl_sites :: (path: string, content: string, name: string) -> [..]Local_Hit {
     hits: [..]Local_Hit;
-    toks := collect_tokens(content);
+    toks := doc_tokens(path, content);
     if toks.count == 0 { return hits; }
     for i: 0..toks.count-1 {
         t := toks[i];
@@ -169,9 +192,9 @@ find_local_decl_sites :: (content: string, name: string) -> [..]Local_Hit {
     return hits;
 }
 
-find_scoped_local :: (content: string, name: string, line: s32, col: s32) -> bool, Local_Hit {
+find_scoped_local :: (path: string, content: string, name: string, line: s32, col: s32) -> bool, Local_Hit {
     result: Local_Hit;
-    toks := collect_tokens(content);
+    toks := doc_tokens(path, content);
 
     Scope_Entry :: struct {
         depth: s64;
@@ -269,8 +292,7 @@ semantic_spans :: (content: string, path: string) -> [..]Ident_Span {
     kinds := semantic_kinds();
 
     file_kinds: Table(string, s32);
-    for g_decls {
-        if it.path != path { continue; }
+    for decls_in_file(path) {
         index           := semantic_kind_index(it.kind);
         existing, found := table_find(*file_kinds, it.name);
         if found && existing <= index { continue; }
@@ -284,7 +306,7 @@ semantic_spans :: (content: string, path: string) -> [..]Ident_Span {
     local_stack:  [..]Local_Entry;
     local_counts: Table(string, s32);
 
-    toks  := collect_tokens(content);
+    toks  := doc_tokens(path, content);
     curly := 0;
     paren := 0;
     for i: 0..toks.count-1 {
@@ -352,23 +374,46 @@ semantic_spans :: (content: string, path: string) -> [..]Ident_Span {
 
 #scope_file
 
+g_file_index_lookup:      Table(string, *File_Index);
 g_kinds_cache:            Table(string, s32);
+g_kinds_names:            string;
 g_kinds_cache_generation: s64 = -1;
 
 semantic_kinds :: () -> *Table(string, s32) {
-    if g_kinds_cache_generation != g_decls_generation {
-        push_allocator(g_heap);
-        table_reset(*g_kinds_cache);
-        for g_decls {
-            index := semantic_kind_index(it.kind);
-            if index == -1 { continue; }
-            existing, found := table_find(*g_kinds_cache, it.name);
-            if found && existing <= index { continue; }
-            table_set(*g_kinds_cache, it.name, index);
-        }
-        g_kinds_cache_generation = g_decls_generation;
+    if g_kinds_cache_generation == g_names_generation { return *g_kinds_cache; }
+
+    push_allocator(g_heap);
+    table_reset(*g_kinds_cache);
+    free(g_kinds_names);
+
+    total := 0;
+    for file: g_file_indexes for file.decls {
+        if semantic_kind_index(it.kind) != -1 { total += it.name.count; }
     }
+    g_kinds_names = alloc_string(total);
+
+    cursor := 0;
+    for file: g_file_indexes for file.decls {
+        index := semantic_kind_index(it.kind);
+        if index == -1 { continue; }
+        existing := table_find_pointer(*g_kinds_cache, it.name);
+        if existing {
+            if index < existing.* { existing.* = index; }
+            continue;
+        }
+        key := slice(g_kinds_names, cursor, it.name.count);
+        memcpy(key.data, it.name.data, key.count);
+        cursor += key.count;
+        table_add(*g_kinds_cache, key, index);
+    }
+    g_kinds_cache_generation = g_names_generation;
     return *g_kinds_cache;
+}
+
+same_names :: (a: []Decl, b: []Decl) -> bool {
+    if a.count != b.count { return false; }
+    for a if it.kind != b[it_index].kind || it.name != b[it_index].name return false;
+    return true;
 }
 
 semantic_kind_index :: (kind: Decl_Kind) -> s32 {
@@ -381,7 +426,7 @@ semantic_kind_index :: (kind: Decl_Kind) -> s32 {
     return -1;
 }
 
-index_enum_members :: (path: string, toks: []Tok, enum_keyword_index: s64, enum_name: string, module: string) {
+index_enum_members :: (found: *[..]Decl, toks: []Tok, enum_keyword_index: s64, enum_name: string) {
     j := enum_keyword_index;
     while j < toks.count {
         t := toks[j].type;
@@ -403,21 +448,14 @@ index_enum_members :: (path: string, toks: []Tok, enum_keyword_index: s64, enum_
         }
         if depth == 1 && t.type == .IDENT
         && (prev == cast(Token_Type) #char "{" || prev == cast(Token_Type) #char ";") {
-            sig  := tprint("%.%", enum_name, t.name);
-            base := completion_base_json(t.name, .ENUM_MEMBER, sig, module);
-            push_allocator(g_heap);
             decl: Decl;
-            decl.name            = copy_string(t.name);
-            decl.path            = copy_string(path);
-            decl.line            = t.l0 - 1;
-            decl.col             = t.c0 - 1;
-            decl.name_end        = t.c0 - 1 + cast(s32) t.name.count;
-            decl.kind            = .ENUM_MEMBER;
-            decl.signature       = copy_string(sig);
-            decl.module          = copy_string(module);
-            decl.completion_base = copy_string(base);
-            array_add(*g_decls, decl);
-            g_decls_generation += 1;
+            decl.name      = t.name;
+            decl.line      = t.l0 - 1;
+            decl.col       = t.c0 - 1;
+            decl.name_end  = t.c0 - 1 + cast(s32) t.name.count;
+            decl.kind      = .ENUM_MEMBER;
+            decl.signature = tprint("%.%", enum_name, t.name);
+            array_add(found, decl);
         }
         prev = t.type;
         j += 1;
@@ -446,6 +484,9 @@ collect_tokens :: (content: string) -> [..]Tok {
         context.logger_data = previous_logger_data;
     }
 
+    line:       s32 = 1;
+    line_start: s64 = 0;
+
     set_input_from_string(*lexer, content);
     while 1 {
         token := peek_next_token(*lexer);
@@ -455,7 +496,20 @@ collect_tokens :: (content: string) -> [..]Tok {
         tok.l0   = token.l0;
         tok.c0   = token.c0;
         tok.c1   = token.c1;
-        if token.type == .IDENT { tok.name = copy_string(token.ident_value.name); }
+        if token.type == .IDENT {
+            while line < token.l0 && line_start < content.count {
+                while line_start < content.count && content[line_start] != #char "\n" { line_start += 1; }
+                line_start += 1;
+                line += 1;
+            }
+            name   := token.ident_value.name;
+            offset := line_start + token.c0 - 1;
+            if offset >= 0 && offset + name.count <= content.count && slice(content, offset, name.count) == name {
+                tok.name = slice(content, offset, name.count);
+            } else {
+                tok.name = copy_string(name);
+            }
+        }
         array_add(*toks, tok);
         eat_token(*lexer);
         if lexer.reported_error {
@@ -479,33 +533,32 @@ index_lexer_logger :: (message: string, data: *void, info: Log_Info) {
 
 #scope_file
 
-add_decl :: (path: string, content: string, line_starts: []s64, t: Tok, kind: Decl_Kind, module: string) {
-    line0 := t.l0 - 1;
-    sig   := trim(get_indexed_line(content, line_starts, line0));
-    base  := completion_base_json(t.name, kind, sig, module);
-
-    push_allocator(g_heap);
+make_decl :: (content: string, line_starts: []s64, t: Tok, kind: Decl_Kind) -> Decl {
     decl: Decl;
-    decl.name            = copy_string(t.name);
-    decl.path            = copy_string(path);
-    decl.line            = cast(s32) line0;
-    decl.col             = t.c0 - 1;
-    decl.name_end        = t.c0 - 1 + cast(s32) t.name.count;
-    decl.kind            = kind;
-    decl.signature       = copy_string(sig);
-    decl.module          = copy_string(module);
-    decl.completion_base = copy_string(base);
-    array_add(*g_decls, decl);
-    g_decls_generation += 1;
+    decl.name      = t.name;
+    decl.line      = t.l0 - 1;
+    decl.col       = t.c0 - 1;
+    decl.name_end  = t.c0 - 1 + cast(s32) t.name.count;
+    decl.kind      = kind;
+    decl.signature = trim(get_indexed_line(content, line_starts, decl.line));
+    return decl;
 }
 
-completion_base_json :: (name: string, kind: Decl_Kind, signature: string, module: string) -> string {
-    detail: string;
-    if module.count > 0 { detail = tprint("% \u2014 %", module, signature); }
-    else                { detail = signature; }
-    return tprint("\"label\":\"%\",\"kind\":%,\"detail\":\"%\"",
-        json_escape(name), completion_kind_number(kind), json_escape(detail));
+#scope_export
+
+append_completion_item :: (builder: *String_Builder, decl: Decl) {
+    append(builder, "{\"label\":\"");
+    append_json_escaped(builder, decl.name);
+    print_to_builder(builder, "\",\"kind\":%,\"detail\":\"", completion_kind_number(decl.kind));
+    if decl.module.count > 0 {
+        append_json_escaped(builder, decl.module);
+        append(builder, " \u2014 ");
+    }
+    append_json_escaped(builder, decl.signature);
+    append(builder, "\"");
 }
+
+#scope_file
 
 completion_kind_number :: (kind: Decl_Kind) -> s32 {
     if kind == {

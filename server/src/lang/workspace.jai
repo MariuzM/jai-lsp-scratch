@@ -1,6 +1,9 @@
 Doc :: struct {
-    path: string;
-    text: string;
+    path:        string;
+    text:        string;
+    tokens:      []Tok;
+    token_names: [..]string;
+    has_tokens:  bool;
 }
 
 g_docs:            [..]Doc;
@@ -14,7 +17,7 @@ get_text :: (path: string) -> string, bool {
     return content, ok;
 }
 
-set_doc :: (path: string, text: string) {
+set_doc :: (path: string, text: string) -> string {
     push_allocator(g_heap);
     index := find_doc(path);
     if index == -1 {
@@ -22,19 +25,44 @@ set_doc :: (path: string, text: string) {
         doc.path = copy_string(path);
         doc.text = copy_string(text);
         array_add(*g_docs, doc);
-    } else {
-        free(g_docs[index].text);
-        g_docs[index].text = copy_string(text);
+        return doc.text;
     }
+    doc := *g_docs[index];
+    free_doc_tokens(doc);
+    free(doc.text);
+    doc.text = copy_string(text);
+    return doc.text;
 }
 
 close_doc :: (path: string) {
     index := find_doc(path);
     if index == -1 { return; }
     push_allocator(g_heap);
+    free_doc_tokens(*g_docs[index]);
     free(g_docs[index].path);
     free(g_docs[index].text);
     array_unordered_remove_by_index(*g_docs, index);
+}
+
+doc_tokens :: (path: string, text: string) -> []Tok {
+    index := find_doc(path);
+    if index == -1 || g_docs[index].text.data != text.data || g_docs[index].text.count != text.count {
+        return collect_tokens(text);
+    }
+
+    doc := *g_docs[index];
+    if !doc.has_tokens {
+        toks := collect_tokens(text);
+        push_allocator(g_heap);
+        doc.tokens = array_copy(toks);
+        for * doc.tokens {
+            if it.type != .IDENT || is_inside(it.name, text) { continue; }
+            it.name = copy_string(it.name);
+            array_add(*doc.token_names, it.name);
+        }
+        doc.has_tokens = true;
+    }
+    return doc.tokens;
 }
 
 COMMON_MODULES :: string.["Basic", "String", "Math", "File", "File_Utilities", "File_Watcher", "Hash_Table", "Hash", "Sort", "Random", "Thread", "Process", "POSIX", "Socket", "System", "Unicode", "Bit_Operations", "Command_Line", "Atomics", "Pool", "Base64"];
@@ -47,9 +75,11 @@ file_imports :: (text: string) -> [..]string {
     imports: [..]string;
     remaining := text;
     while 1 {
-        index := find_index_from_left(remaining, "#import");
+        index := find_index_from_left(remaining, #char "#");
         if index == -1 { break; }
-        remaining = slice(remaining, index + 7, remaining.count - index - 7);
+        remaining = slice(remaining, index + 1, remaining.count - index - 1);
+        if !starts_with(remaining, "import") { continue; }
+        remaining = slice(remaining, 6, remaining.count - 6);
         k := 0;
         while k < remaining.count && remaining[k] == #char " " { k += 1; }
         if k >= remaining.count || remaining[k] != #char "\"" { continue; }
@@ -90,13 +120,13 @@ scan_workspace :: () {
         if found_build || found_out { continue; }
         content, ok := read_entire_file(it);
         if !ok { continue; }
-        index_file_content_cached(it, content);
+        index_file_cached(it, content = content, has_content = true);
         detect_entry_file(it, content);
         add_workspace_file(it);
         index_imported_modules(content);
         count += 1;
     }
-    log_err("indexed % files, % decls", count, g_decls.count);
+    log_err("indexed % files, % decls", count, decl_count());
 }
 
 add_workspace_file :: (path: string) {
@@ -107,20 +137,7 @@ add_workspace_file :: (path: string) {
 }
 
 index_imported_modules :: (content: string) {
-    remaining := content;
-    while 1 {
-        index := find_index_from_left(remaining, "#import");
-        if index == -1 { break; }
-        remaining = slice(remaining, index + 7, remaining.count - index - 7);
-        k := 0;
-        while k < remaining.count && remaining[k] == #char " " { k += 1; }
-        if k >= remaining.count || remaining[k] != #char "\"" { continue; }
-        k += 1;
-        start := k;
-        while k < remaining.count && remaining[k] != #char "\"" && remaining[k] != #char "\n" { k += 1; }
-        if k >= remaining.count || remaining[k] != #char "\"" { continue; }
-        index_module(slice(remaining, start, k - start));
-    }
+    for file_imports(content) index_module(it);
 }
 
 modules_root :: () -> string {
@@ -212,6 +229,20 @@ find_doc :: (path: string) -> s64 {
     return -1;
 }
 
+free_doc_tokens :: (doc: *Doc) {
+    if !doc.has_tokens { return; }
+    push_allocator(g_heap);
+    for doc.token_names free(it);
+    array_reset(*doc.token_names);
+    array_free(doc.tokens);
+    doc.tokens     = .[];
+    doc.has_tokens = false;
+}
+
+is_inside :: (part: string, whole: string) -> bool {
+    return part.data >= whole.data && part.data + part.count <= whole.data + whole.count;
+}
+
 visit_jai_files :: (info: *File_Visit_Info, results: *[..]string) {
     if ends_with(info.short_name, ".jai") { array_add(results, copy_string(info.full_name)); }
 }
@@ -227,7 +258,7 @@ index_module :: (name: string) {
     base   := modules_root();
     single := tprint("%/%.jai", base, name);
     if file_exists(single) {
-        index_module_file(single, name);
+        index_file_cached(single, name);
         log_err("indexed module % (single file)", name);
         return;
     }
@@ -236,16 +267,8 @@ index_module :: (name: string) {
     if !file_exists(module_main) { return; }
     filenames: [..]string;
     visit_files(dir, true, *filenames, visit_jai_files);
-    count := 0;
-    for filenames {
-        index_module_file(it, name);
-        count += 1;
-    }
-    log_err("indexed module % (% files)", name, count);
-}
-
-index_module_file :: (path: string, module: string) {
-    index_file_disk_cached(path, module);
+    for filenames index_file_cached(it, name);
+    log_err("indexed module % (% files)", name, filenames.count);
 }
 
 hex_digit :: (c: u8) -> s32 {

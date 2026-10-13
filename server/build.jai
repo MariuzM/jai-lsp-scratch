@@ -40,7 +40,7 @@ build :: () {
         return;
     }
 
-    if !compile_server() {
+    if !compile_server(optimized = target == .BUNDLE) {
         compiler_set_workspace_status(.FAILED);
         return;
     }
@@ -59,7 +59,7 @@ parse_target :: (arguments: []string) -> Build_Target, bool {
     return .BUILD, false;
 }
 
-compile_server :: () -> bool {
+compile_server :: (optimized: bool) -> bool {
     workspace := compiler_create_workspace("jai-lsp-scratch");
     if !workspace {
         log_error("Could not create the server build workspace.\n");
@@ -70,6 +70,7 @@ compile_server :: () -> bool {
     options.output_executable_name = "jai-lsp-scratch";
     options.output_path            = "build";
     options.intermediate_path      = "build/.build";
+    if optimized { set_optimization(*options, .OPTIMIZED); }
     set_build_options(options, workspace);
 
     compiler_begin_intercept(workspace, .SKIP_ALL);

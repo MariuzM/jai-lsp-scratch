@@ -389,16 +389,19 @@ Concrete changes to come back to, roughly in order of impact.
 
 **Performance at scale** (measured on a 1M-line / 332k-declaration stress workspace)
 
-- [ ] **Completion: server-side filtering.** Match items against the word being typed, return the
-      best ~1,000 with `isIncomplete: true` so the editor re-queries as you type. Fixes the 463 ms /
-      60 MB response on huge workspaces and shrinks the 17 ms on normal ones. The per-declaration
-      JSON fragments are already precomputed, so this is a filter loop in `handle_completion`.
+- [ ] **Completion: cap the list.** Items are already prefiltered against the word being typed
+      (a superset of what VS Code's fuzzy matcher shows, so nothing visible is dropped), which cuts
+      the response to roughly ½ for a 1-letter prefix and ¼ for 3 letters. Returning only the best
+      ~1,000 with `isIncomplete: true` would shrink it further; completion right after `.` still
+      returns everything.
 - [ ] **References: in-memory file cache.** `scan_workspace` already reads every file once and
       throws the text away; keeping it (~35 MB per 1M lines) turns the per-request disk sweep (1.9
       s) into an in-memory scan. Needs invalidation from `didChange`/`didSave` only.
-- [ ] **Memory: intern per-file strings.** Every declaration heap-copies its `path`; one shared copy
-      per file would cut a large slice of the ~2 KB/decl footprint (~655 MB RSS at 1M lines). Same
-      idea for dropping `signature` where `completion_base` already embeds it.
+- [x] **Memory: one allocation per file.** Each file's declarations live in a single blob (the same
+      bytes as its index cache entry); `path` and `module` are shared per file, and completion JSON
+      is built on demand instead of being stored per declaration.
+- [x] **Per-document token cache.** Open documents are lexed once per edit; hover, definition,
+      semantic tokens, and enum completion reuse the tokens instead of re-lexing the whole file.
 - [x] **Startup: linear declaration extraction and persistent per-file caching.** Declaration
       signatures use a single line-offset pass instead of rescanning the source for every symbol,
       and unchanged files restore their declarations from a versioned cache on the next launch.
@@ -465,7 +468,7 @@ The build and bundle steps are implemented by the Jai metaprogram and work from 
 
 ```
 jai server/build.jai - build   # compile -> server/build/jai-lsp-scratch[.exe]
-jai server/build.jai - bundle  # build + copy and verify the current-platform binary
+jai server/build.jai - bundle  # optimized build + copy and verify the current-platform binary
 jai server/build.jai - clean   # remove build and VSIX artifacts
 ```
 
@@ -474,7 +477,7 @@ The Makefile provides convenience wrappers around those same Jai targets:
 ```
 make build      # compile the server -> server/build/jai-lsp-scratch
 make dev        # rebuild on every change under server/src/ (watchexec)
-make bundle     # build + copy the binary into extension/bin/
+make bundle     # optimized build + copy the binary into extension/bin/
 make package    # bundle + produce the .vsix
 make install    # package + install the .vsix into VS Code
 make release    # package + create/refresh the GitHub release for the current version

@@ -37,6 +37,57 @@ enum_context_type :: (text: string, path: string, line: s64, character: s64) -> 
     return "";
 }
 
+completion_prefix :: (text: string, line: s64, character: s64) -> string {
+    line_text := get_line(text, line);
+    limit     := min(character, line_text.count);
+    start     := limit;
+    while start > 0 && is_word_char(line_text[start - 1]) { start -= 1; }
+    if start > 0 && line_text[start - 1] >= 0x80 { return ""; }
+    return slice(line_text, start, limit - start);
+}
+
+matches_completion_prefix :: (label: string, prefix: string) -> bool {
+    if !prefix { return true; }
+
+    is_letter_or_digit :: (c: u8) -> bool {
+        return (c >= #char "a" && c <= #char "z") || (c >= #char "A" && c <= #char "Z") || (c >= #char "0" && c <= #char "9");
+    }
+
+    first := to_lower(prefix[0]);
+    i     := 0;
+    while i < label.count {
+        c := label[i];
+        if to_lower(c) == first && (i == 0 || (c >= #char "A" && c <= #char "Z") || !is_letter_or_digit(c) || !is_letter_or_digit(label[i - 1])) { break; }
+        i += 1;
+    }
+    if i == label.count { return false; }
+
+    char_bit :: (c: u8) -> u64 {
+        lower := to_lower(c);
+        if lower >= #char "a" && lower <= #char "z" { return (cast(u64) 1) << (lower - #char "a"); }
+        if lower >= #char "0" && lower <= #char "9" { return (cast(u64) 1) << (26 + lower - #char "0"); }
+        return (cast(u64) 1) << 36;
+    }
+
+    wanted: u64;
+    for k: 1..prefix.count-1 { wanted |= char_bit(prefix[k]); }
+    present: u64;
+    for k: i+1..label.count-1 { present |= char_bit(label[k]); }
+    return (wanted & ~present) == 0;
+}
+
+contains_ignore_case :: (s: string, lower_query: string) -> bool {
+    if lower_query.count > s.count { return false; }
+    for i: 0..s.count-lower_query.count {
+        matched := true;
+        for j: 0..lower_query.count-1 {
+            if to_lower(s[i + j]) != lower_query[j] { matched = false; break; }
+        }
+        if matched { return true; }
+    }
+    return false;
+}
+
 #scope_file
 
 extract_expr :: (s: string, end: s64) -> string {
@@ -139,7 +190,7 @@ apply_indexing :: (ref: Type_Ref, groups: s64) -> Type_Ref {
 
 resolve_name_type :: (text: string, path: string, name: string, line: s32, col: s32, depth: s64) -> Type_Ref {
     fail: Type_Ref;
-    found, hit := find_scoped_local(text, name, line, col);
+    found, hit := find_scoped_local(path, text, name, line, col);
     if found { return type_from_decl_line(text, path, name, hit.line, depth); }
     for find_decls(name) {
         if it.kind != .VARIABLE && it.kind != .CONSTANT { continue; }
@@ -267,7 +318,7 @@ struct_field_type :: (struct_name: string, field: string, depth: s64) -> Type_Re
         if decl.kind != .STRUCT { continue; }
         stext, ok := get_text(decl.path);
         if !ok { continue; }
-        toks := collect_tokens(stext);
+        toks := doc_tokens(decl.path, stext);
         i    := 0;
         while i < toks.count {
             t := toks[i];

@@ -57,23 +57,27 @@ json_get_object :: (v: Json_Value, key: string) -> Json_Value, bool {
 
 json_escape :: (s: string) -> string {
     builder: String_Builder;
+    append_json_escaped(*builder, s);
+    return builder_to_string(*builder);
+}
+
+append_json_escaped :: (builder: *String_Builder, s: string) {
+    run := 0;
     for i: 0..s.count-1 {
         c := s[i];
+        if c >= 0x20 && c != #char "\"" && c != #char "\\" { continue; }
+        append(builder, slice(s, run, i - run));
+        run = i + 1;
         if c == {
-            case #char "\""; append(*builder, "\\\"");
-            case #char "\\"; append(*builder, "\\\\");
-            case #char "\n"; append(*builder, "\\n");
-            case #char "\r"; append(*builder, "\\r");
-            case #char "\t"; append(*builder, "\\t");
-            case;
-                if c < 0x20 {
-                    print_to_builder(*builder, "\\u%", formatInt(c, base=16, minimum_digits=4));
-                } else {
-                    append(*builder, c);
-                }
+            case #char "\""; append(builder, "\\\"");
+            case #char "\\"; append(builder, "\\\\");
+            case #char "\n"; append(builder, "\\n");
+            case #char "\r"; append(builder, "\\r");
+            case #char "\t"; append(builder, "\\t");
+            case;            print_to_builder(builder, "\\u%", formatInt(c, base=16, minimum_digits=4));
         }
     }
-    return builder_to_string(*builder);
+    append(builder, slice(s, run, s.count - run));
 }
 
 json_id_string :: (id: Json_Value) -> string {
@@ -193,10 +197,20 @@ parse_array :: (p: *Json_Parser, depth: int) -> Json_Value {
 parse_string :: (p: *Json_Parser) -> string {
     if !expect(p, #char "\"") { return ""; }
     builder: String_Builder;
+    escaped := false;
+    run     := p.pos;
     while p.pos < p.s.count {
         c := p.s[p.pos];
-        if c == #char "\"" { p.pos += 1; return builder_to_string(*builder); }
+        if c == #char "\"" {
+            tail := slice(p.s, run, p.pos - run);
+            p.pos += 1;
+            if !escaped { return tail; }
+            append(*builder, tail);
+            return builder_to_string(*builder);
+        }
         if c == #char "\\" {
+            append(*builder, slice(p.s, run, p.pos - run));
+            escaped = true;
             p.pos += 1;
             if p.pos >= p.s.count { break; }
             e := p.s[p.pos];
@@ -233,10 +247,10 @@ parse_string :: (p: *Json_Parser) -> string {
                     p.failed = true;
                     return "";
             }
+            run = p.pos;
             continue;
         }
         if c < 0x20 { p.failed = true; return ""; }
-        append(*builder, c);
         p.pos += 1;
     }
     p.failed = true;
