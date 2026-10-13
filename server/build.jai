@@ -3,6 +3,7 @@
 #import "String";
 #import "File";
 #import "File_Utilities";
+#import "Process";
 
 #run build();
 
@@ -71,22 +72,49 @@ compile_server :: (optimized: bool) -> bool {
     options.output_path            = "build";
     options.intermediate_path      = "build/.build";
     if optimized { set_optimization(*options, .OPTIMIZED); }
+    #if OS == .MACOS { options.use_custom_link_command = true; }
     set_build_options(options, workspace);
 
     compiler_begin_intercept(workspace, .SKIP_ALL);
     add_build_file("src/main.jai", workspace);
 
     succeeded := false;
+    linked    := true;
     while true {
         message := compiler_wait_for_message();
+        if message.kind == .PHASE {
+            phase := cast(*Message_Phase) message;
+            if phase.phase == .READY_FOR_CUSTOM_LINK_COMMAND {
+                linked = link_with_clang(phase, tprint("%/%", options.output_path, options.output_executable_name));
+                compiler_custom_link_command_is_complete(workspace);
+            }
+            continue;
+        }
         if message.kind != .COMPLETE { continue; }
 
         complete := cast(*Message_Complete) message;
-        succeeded = complete.error_code == .NONE;
+        succeeded = complete.error_code == .NONE && linked;
         break;
     }
     compiler_end_intercept(workspace);
     return succeeded;
+}
+
+link_with_clang :: (phase: *Message_Phase, output: string) -> bool {
+    command: [..]string;
+    array_add(*command, "clang", "-arch", ifx CPU == .ARM64 then "arm64" else "x86_64");
+    array_add(*command, "-mmacosx-version-min=11.0", "-Wl,-rpath,@loader_path", "-o", output);
+    for phase.compiler_generated_object_files array_add(*command, it);
+    for phase.support_object_files            array_add(*command, it);
+    for phase.system_libraries                array_add(*command, it);
+    for phase.user_libraries                  array_add(*command, it);
+
+    result := run_command(..command);
+    if result.exit_code != 0 {
+        log_error("Linking with clang failed.\n");
+        return false;
+    }
+    return true;
 }
 
 bundle_server :: () -> bool {
