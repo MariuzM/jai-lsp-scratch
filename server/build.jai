@@ -4,6 +4,7 @@
 #import "File";
 #import "File_Utilities";
 #import "Process";
+#if OS != .WINDOWS { POSIX :: #import "POSIX"; }
 
 #run build();
 
@@ -143,6 +144,12 @@ bundle_server :: () -> bool {
 
     if !make_directory_if_it_does_not_exist("../extension/bin", recursive = true) return false;
     if !copy_file(source, destination)                                            return false;
+    #if OS != .WINDOWS {
+        if POSIX.chmod(temp_c_string(destination), 0x1ED) != 0 {
+            log_error("Could not mark % as executable.\n", destination);
+            return false;
+        }
+    }
 
     source_data, source_ok           := read_entire_file(source);
     destination_data, destination_ok := read_entire_file(destination);
