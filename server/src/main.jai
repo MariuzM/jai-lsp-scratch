@@ -42,6 +42,16 @@ main :: () {
     g_heap         = context.allocator;
     context.logger = stderr_logger;
 
+    format_only := false;
+    for get_command_line_arguments() {
+        if it == "--format"                    { format_only = true; }
+        if it == "--no-space-after-array-type" { g_space_after_array_type = false; }
+    }
+    if format_only {
+        format_stdin();
+        return;
+    }
+
     log_err("jai-lsp-scratch starting");
 
     while !g_exit {
@@ -55,6 +65,21 @@ main :: () {
         reset_temporary_storage();
     }
     log_err("jai-lsp-scratch exiting");
+}
+
+format_stdin :: () {
+    builder: String_Builder;
+    buffer: [65536]u8;
+    while true {
+        count := platform_read_stdin(buffer.data, buffer.count);
+        if count < 0 {
+            log_err("could not read stdin");
+            exit(1);
+        }
+        if count == 0 { break; }
+        append(*builder, buffer.data, count);
+    }
+    write_string(format_source(builder_to_string(*builder)));
 }
 
 stderr_logger :: (message: string, data: *void, info: Log_Info) {

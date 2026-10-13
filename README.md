@@ -381,7 +381,15 @@ run_quiet(
 - Multi-line declarations (`proc :: (…) {`, `X :: struct {`) — only single-line `;`-terminated
   declarations align
 
-Formatting is idempotent: running the formatter on its own output changes nothing.
+Formatting is idempotent: running the formatter on its own output changes nothing. CRLF files keep
+their line endings.
+
+The server binary also formats from the command line, reading stdin and writing stdout:
+
+```
+jai-lsp-scratch --format < file.jai > formatted.jai
+jai-lsp-scratch --format --no-space-after-array-type < file.jai
+```
 
 ## Future improvements
 

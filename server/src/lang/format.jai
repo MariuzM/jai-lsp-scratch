@@ -1,6 +1,10 @@
 format_source :: (text: string) -> string {
-    split := split_statements(text);
-    return format_lines(split);
+    crlf, _ := contains(text, "\r\n");
+    source  := text;
+    if crlf { source = replace(text, "\r\n", "\n"); }
+    formatted := format_lines(split_statements(source));
+    if crlf { return replace(formatted, "\n", "\r\n"); }
+    return formatted;
 }
 
 Out_Line :: struct {
