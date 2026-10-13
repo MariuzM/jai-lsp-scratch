@@ -63,8 +63,8 @@ platform_resolve_executable :: (path: string) -> string {
         remaining := to_string(value);
         while remaining.count > 0 {
             found, directory, rest := split_from_left(remaining, ":");
-            if found { remaining = rest; }
-            else     { directory = remaining; remaining = ""; }
+            if found      { remaining = rest; }
+            else          { directory = remaining; remaining = ""; }
             if !directory { continue; }
 
             candidate := tprint("%/%", directory, path);

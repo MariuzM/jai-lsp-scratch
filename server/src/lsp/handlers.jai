@@ -61,7 +61,10 @@ handle_initialize :: (id: Json_Value, params: Json_Value) {
     resolve_compiler_path();
     log_err("initialize root=% compiler=%", g_root, g_compiler);
 
-    respond(id, "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.24.0\"}}");
+    respond(
+        id,
+        "{\"capabilities\":{\"textDocumentSync\":1,\"hoverProvider\":true,\"definitionProvider\":true,\"referencesProvider\":true,\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"documentFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"enum\",\"struct\",\"enumMember\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"completionProvider\":{\"triggerCharacters\":[\".\"]}},\"serverInfo\":{\"name\":\"jai-lsp-scratch\",\"version\":\"0.24.0\"}}",
+    );
 }
 
 handle_shutdown :: (id: Json_Value) {
@@ -113,7 +116,12 @@ handle_document_symbol :: (id: Json_Value, params: Json_Value) {
     append(*builder, "[");
     for decls {
         if it_index > 0 { append(*builder, ","); }
-        print_to_builder(*builder, "{\"name\":\"%\",\"kind\":%,\"location\":", json_escape(it.name), symbol_kind_number(it.kind));
+        print_to_builder(
+            *builder,
+            "{\"name\":\"%\",\"kind\":%,\"location\":",
+            json_escape(it.name),
+            symbol_kind_number(it.kind),
+        );
         append_location(*builder, it);
         append(*builder, "}");
     }
@@ -129,8 +137,13 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
 
     directive := directive_target(path, text, line, character);
     if directive {
-        respond(id, tprint("[{\"uri\":\"%\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":0}}}]",
-            path_to_uri(directive)));
+        respond(
+            id,
+            tprint(
+                "[{\"uri\":\"%\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":0}}}]",
+                path_to_uri(directive),
+            ),
+        );
         return;
     }
 
@@ -138,10 +151,25 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
     if !word { respond(id, "null"); return; }
 
     if !dotted {
-        local_found, local_hit := find_scoped_local(path, text, word, cast(s32) line, cast(s32) character);
+        local_found, local_hit := find_scoped_local(
+            path,
+            text,
+            word,
+            cast(s32) line,
+            cast(s32) character,
+        );
         if local_found {
-            respond(id, tprint("[{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}]",
-                path_to_uri(path), local_hit.line, local_hit.col, local_hit.line, local_hit.name_end));
+            respond(
+                id,
+                tprint(
+                    "[{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}]",
+                    path_to_uri(path),
+                    local_hit.line,
+                    local_hit.col,
+                    local_hit.line,
+                    local_hit.name_end,
+                ),
+            );
             return;
         }
     }
@@ -178,8 +206,17 @@ handle_definition :: (id: Json_Value, params: Json_Value) {
     }
     if chosen == -1 { chosen = 0; }
     hit := hits[chosen];
-    respond(id, tprint("[{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}]",
-        path_to_uri(path), hit.line, hit.col, hit.line, hit.name_end));
+    respond(
+        id,
+        tprint(
+            "[{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}]",
+            path_to_uri(path),
+            hit.line,
+            hit.col,
+            hit.line,
+            hit.name_end,
+        ),
+    );
 }
 
 handle_references :: (id: Json_Value, params: Json_Value) {
@@ -206,7 +243,15 @@ handle_references :: (id: Json_Value, params: Json_Value) {
     for file: g_files {
         file_text, file_ok := get_text(file);
         if !file_ok { continue; }
-        total += append_references_in_file(*builder, file, file_text, word, *first, include_declaration, decl_sites);
+        total += append_references_in_file(
+            *builder,
+            file,
+            file_text,
+            word,
+            *first,
+            include_declaration,
+            decl_sites,
+        );
     }
     append(*builder, "]");
     log_err("references for '%': % locations", word, total);
@@ -222,11 +267,23 @@ handle_hover :: (id: Json_Value, params: Json_Value) {
     if !word { respond(id, "null"); return; }
 
     if !dotted {
-        local_found, local_hit := find_scoped_local(path, text, word, cast(s32) line, cast(s32) character);
+        local_found, local_hit := find_scoped_local(
+            path,
+            text,
+            word,
+            cast(s32) line,
+            cast(s32) character,
+        );
         if local_found {
             sig   := trim(get_line(text, local_hit.line));
             value := tprint("```jai\n%\n```\n\n%:%", sig, display_path(path), local_hit.line + 1);
-            respond(id, tprint("{\"contents\":{\"kind\":\"markdown\",\"value\":\"%\"}}", json_escape(value)));
+            respond(
+                id,
+                tprint(
+                    "{\"contents\":{\"kind\":\"markdown\",\"value\":\"%\"}}",
+                    json_escape(value),
+                ),
+            );
             return;
         }
     }
@@ -243,7 +300,10 @@ handle_hover :: (id: Json_Value, params: Json_Value) {
 
     relative := display_path(best.path);
     value    := tprint("```jai\n%\n```\n\n%:%", best.signature, relative, best.line + 1);
-    respond(id, tprint("{\"contents\":{\"kind\":\"markdown\",\"value\":\"%\"}}", json_escape(value)));
+    respond(
+        id,
+        tprint("{\"contents\":{\"kind\":\"markdown\",\"value\":\"%\"}}", json_escape(value)),
+    );
 }
 
 handle_completion :: (id: Json_Value, params: Json_Value) {
@@ -259,9 +319,9 @@ handle_completion :: (id: Json_Value, params: Json_Value) {
             append(*builder, "[");
             first := true;
             for file: g_file_indexes for file.decls {
-                if it.kind != .ENUM_MEMBER { continue; }
+                if it.kind != .ENUM_MEMBER            { continue; }
                 if !starts_with(it.signature, prefix) { continue; }
-                if !first { append(*builder, ","); }
+                if !first                             { append(*builder, ","); }
                 first = false;
                 append_completion_item(*builder, it);
                 append(*builder, "}");
@@ -289,12 +349,15 @@ handle_completion :: (id: Json_Value, params: Json_Value) {
         if file.module.count > 0 {
             import_edit = tprint(
                 ",\"additionalTextEdits\":[{\"range\":{\"start\":{\"line\":%,\"character\":0},\"end\":{\"line\":%,\"character\":0}},\"newText\":\"#import \\\"%\\\";\\n\"}]",
-                insert_line, insert_line, json_escape(file.module));
+                insert_line,
+                insert_line,
+                json_escape(file.module),
+            );
             for imports if it == file.module { import_edit = ""; break; }
         }
         for file.decls {
             if !matches_completion_prefix(it.name, prefix) { continue; }
-            if !first { append(*builder, ","); }
+            if !first                                      { append(*builder, ","); }
             first = false;
             append_completion_item(*builder, it);
             append(*builder, import_edit);
@@ -313,9 +376,14 @@ handle_formatting :: (id: Json_Value, params: Json_Value) {
     if formatted == text { respond(id, "[]"); return; }
     line_count := 0;
     for i: 0..text.count-1 if text[i] == #char "\n" line_count += 1;
-    respond(id, tprint(
-        "[{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":%,\"character\":0}},\"newText\":\"%\"}]",
-        line_count + 1, json_escape(formatted)));
+    respond(
+        id,
+        tprint(
+            "[{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":%,\"character\":0}},\"newText\":\"%\"}]",
+            line_count + 1,
+            json_escape(formatted),
+        ),
+    );
 }
 
 handle_semantic_tokens :: (id: Json_Value, params: Json_Value) {
@@ -351,9 +419,14 @@ handle_workspace_symbol :: (id: Json_Value, params: Json_Value) {
     first := true;
     for file: g_file_indexes for file.decls {
         if query && !contains_ignore_case(it.name, query) { continue; }
-        if !first { append(*builder, ","); }
+        if !first                                         { append(*builder, ","); }
         first = false;
-        print_to_builder(*builder, "{\"name\":\"%\",\"kind\":%,\"location\":", json_escape(it.name), symbol_kind_number(it.kind));
+        print_to_builder(
+            *builder,
+            "{\"name\":\"%\",\"kind\":%,\"location\":",
+            json_escape(it.name),
+            symbol_kind_number(it.kind),
+        );
         append_location(*builder, it);
         append(*builder, "}");
     }
@@ -416,7 +489,7 @@ directive_target :: (path: string, text: string, line: s64, character: s64) -> s
             if line_text[i] == #char "\"" { q2 = i; break; }
             i += 1;
         }
-        if q2 == -1 { return ""; }
+        if q2 == -1                          { return ""; }
         if character <= q1 || character > q2 { return ""; }
         return slice(line_text, q1 + 1, q2 - q1 - 1);
     }
@@ -462,9 +535,15 @@ append_references_in_file :: (builder: *String_Builder, path: string, text: stri
             if !skip {
                 if !first.* { append(builder, ","); }
                 first.* = false;
-                print_to_builder(builder,
+                print_to_builder(
+                    builder,
                     "{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}",
-                    uri, line, col, line, col + word.count);
+                    uri,
+                    line,
+                    col,
+                    line,
+                    col + word.count,
+                );
                 found += 1;
             }
             i += word.count;
@@ -490,7 +569,13 @@ symbol_kind_number :: (kind: Decl_Kind) -> s32 {
 }
 
 append_location :: (builder: *String_Builder, decl: Decl) {
-    print_to_builder(builder,
+    print_to_builder(
+        builder,
         "{\"uri\":\"%\",\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}}}",
-        path_to_uri(decl.path), decl.line, decl.col, decl.line, decl.name_end);
+        path_to_uri(decl.path),
+        decl.line,
+        decl.col,
+        decl.line,
+        decl.name_end,
+    );
 }

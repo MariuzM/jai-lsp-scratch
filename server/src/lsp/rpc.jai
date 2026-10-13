@@ -28,8 +28,12 @@ respond :: (id: Json_Value, result_json: string) {
 }
 
 respond_error :: (id: Json_Value, code: s64, message: string) {
-    body := tprint("{\"jsonrpc\":\"2.0\",\"id\":%,\"error\":{\"code\":%,\"message\":\"%\"}}",
-        json_id_string(id), code, json_escape(message));
+    body := tprint(
+        "{\"jsonrpc\":\"2.0\",\"id\":%,\"error\":{\"code\":%,\"message\":\"%\"}}",
+        json_id_string(id),
+        code,
+        json_escape(message),
+    );
     send_body(body);
 }
 

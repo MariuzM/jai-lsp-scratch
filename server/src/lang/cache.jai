@@ -69,14 +69,15 @@ decode_index :: (data: string) -> Index_Header, [..]Decl, bool {
     reader: Cache_Reader;
     reader.data = data;
 
-    magic               := cache_read_bytes(*reader, INDEX_CACHE_MAGIC.count);
-    version             := cache_read_value(*reader, u32);
-    header.path          = cache_read_string(*reader);
-    header.module        = cache_read_string(*reader);
-    header.size          = cache_read_value(*reader, s64);
-    header.modtime.low   = cache_read_value(*reader, u64);
-    header.modtime.high  = cache_read_value(*reader, s64);
-    count               := cache_read_value(*reader, u32);
+    magic   := cache_read_bytes(*reader, INDEX_CACHE_MAGIC.count);
+    version := cache_read_value(*reader, u32);
+    count   := cache_read_value(*reader, u32);
+
+    header.path         = cache_read_string(*reader);
+    header.module       = cache_read_string(*reader);
+    header.size         = cache_read_value(*reader, s64);
+    header.modtime.low  = cache_read_value(*reader, u64);
+    header.modtime.high = cache_read_value(*reader, s64);
 
     if !reader.ok || magic != INDEX_CACHE_MAGIC || version != INDEX_CACHE_VERSION || count > cast(u32)(data.count / 21) {
         return header, decls, false;

@@ -23,8 +23,14 @@ run_diagnostics :: () {
     }
 
     result, output, error_output := run_command(
-        g_compiler, g_entry_file, "-exe", "check_bin", "-output_path", output_dir,
-        capture_and_return_output = true, timeout_ms = 30000
+        g_compiler,
+        g_entry_file,
+        "-exe",
+        "check_bin",
+        "-output_path",
+        output_dir,
+        capture_and_return_output = true,
+        timeout_ms = 30000,
     );
 
     combined := tprint("%\n%", output, error_output);
@@ -71,11 +77,18 @@ publish_for_path :: (path: string, diags: []Diag) {
     first := true;
     for diags {
         if it.path != path { continue; }
-        if !first { append(*builder, ","); }
+        if !first          { append(*builder, ","); }
         first = false;
-        print_to_builder(*builder,
+        print_to_builder(
+            *builder,
             "{\"range\":{\"start\":{\"line\":%,\"character\":%},\"end\":{\"line\":%,\"character\":%}},\"severity\":%,\"source\":\"jai\",\"message\":\"%\"}",
-            it.line, it.col, it.line, it.col + 1, it.severity, json_escape(it.message));
+            it.line,
+            it.col,
+            it.line,
+            it.col + 1,
+            it.severity,
+            json_escape(it.message),
+        );
     }
     append(*builder, "]}");
     send_notification("textDocument/publishDiagnostics", builder_to_string(*builder));
@@ -118,7 +131,11 @@ parse_compiler_output :: (s: string) -> [..]Diag {
         comma := find_index_from_left(line_col, #char ",");
         if comma == -1 { continue; }
         line_number, line_ok := string_to_int(slice(line_col, 0, comma), 10, s32);
-        col_number, col_ok   := string_to_int(slice(line_col, comma + 1, line_col.count - comma - 1), 10, s32);
+        col_number, col_ok := string_to_int(
+            slice(line_col, comma + 1, line_col.count - comma - 1),
+            10,
+            s32,
+        );
         if !line_ok || !col_ok { continue; }
 
         diag: Diag;

@@ -69,7 +69,7 @@ main :: () {
 
 format_stdin :: () {
     builder: String_Builder;
-    buffer: [65536]u8;
+    buffer:  [65536]u8;
     while true {
         count := platform_read_stdin(buffer.data, buffer.count);
         if count < 0 {

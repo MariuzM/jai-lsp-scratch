@@ -64,7 +64,22 @@ html_indent_line :: (s: *Format_State, line: string) -> string {
 
 #scope_file
 
-HTML_VOID_TAGS :: string.["meta", "img", "br", "hr", "input", "link", "source", "area", "base", "col", "embed", "param", "track", "wbr"];
+HTML_VOID_TAGS :: string.[
+    "meta",
+    "img",
+    "br",
+    "hr",
+    "input",
+    "link",
+    "source",
+    "area",
+    "base",
+    "col",
+    "embed",
+    "param",
+    "track",
+    "wbr",
+];
 
 html_tag_name :: (content: string, start: s64) -> string {
     k := start;

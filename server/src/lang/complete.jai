@@ -23,7 +23,7 @@ enum_context_type :: (text: string, path: string, line: s64, character: s64) -> 
         expr = extract_expr(line_text, p - 2);
     } else if p >= 0 && line_text[p] == #char "=" {
         q := p - 1;
-        if q >= 0 && line_text[q] == #char ":" { return ""; }
+        if q >= 0 && line_text[q] == #char ":"                                                                                                                       { return ""; }
         if q >= 0 && (line_text[q] == #char "+" || line_text[q] == #char "-" || line_text[q] == #char "|" || line_text[q] == #char "&" || line_text[q] == #char "^") { q -= 1; }
         expr = extract_expr(line_text, q);
     } else if p >= 3 && slice(line_text, p - 3, 4) == "case" && (p - 4 < 0 || !is_word_char(line_text[p-4])) {
@@ -105,7 +105,7 @@ extract_expr :: (s: string, end: s64) -> string {
             start -= 1;
             continue;
         }
-        if bdepth > 0 { start -= 1; continue; }
+        if bdepth > 0                        { start -= 1; continue; }
         if is_word_char(c) || c == #char "." { start -= 1; continue; }
         break;
     }
@@ -262,8 +262,8 @@ type_from_rhs :: (text: string, path: string, toks: []Tok, start: s64, ordinal: 
             j += 1;
             continue;
         }
-        if bdepth > 0 { j += 1; continue; }
-        if tt == .IDENT { append(*builder, toks[j].name); j += 1; continue; }
+        if bdepth > 0                       { j += 1; continue; }
+        if tt == .IDENT                     { append(*builder, toks[j].name); j += 1; continue; }
         if tt == cast(Token_Type) #char "." { append(*builder, "."); j += 1; continue; }
         break;
     }
@@ -334,7 +334,7 @@ struct_field_type :: (struct_name: string, field: string, depth: s64) -> Type_Re
             while j < toks.count && d > 0 {
                 tt := toks[j].type;
                 if tt == cast(Token_Type) #char "{" || tt == .BEGIN_STRUCT_LITERAL { d += 1; j += 1; continue; }
-                if tt == cast(Token_Type) #char "}" { d -= 1; j += 1; continue; }
+                if tt == cast(Token_Type) #char "}"                                { d -= 1; j += 1; continue; }
                 if d == 1 && tt == .IDENT && toks[j].name == field && toks[j-1].type != cast(Token_Type) #char "." {
                     m := j;
                     while m + 2 < toks.count && toks[m+1].type == cast(Token_Type) #char "," && toks[m+2].type == .IDENT { m += 2; }

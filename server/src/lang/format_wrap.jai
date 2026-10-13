@@ -25,10 +25,10 @@ wrap_long_statements :: (lines: [..]Out_Line) -> [..]Out_Line {
         }
 
         joined: String_Builder;
-        last: u8 = 0;
+        last:   u8 = 0;
         for k: i..end {
             content := trim(lines[k].text);
-            if content.count == 0 { continue; }
+            if content.count == 0                                                   { continue; }
             if last != 0 && !is_open_bracket(last) && !is_close_bracket(content[0]) { append(*joined, " "); }
             append(*joined, content);
             last = content[content.count - 1];
@@ -55,14 +55,14 @@ wrappable_extent :: (lines: []Out_Line, i: s64) -> s64, bool {
     if first.protected || first.text.count == 0 { return -1, false; }
     head := trim(first.text);
     if starts_with(head, "//") || is_case_line(head) { return -1, false; }
-    if continues_previous(lines, i) { return -1, false; }
+    if continues_previous(lines, i)                  { return -1, false; }
 
     stack: [..]u8;
     stack.allocator = temp;
     for k: i..lines.count-1 {
         line := lines[k];
         if line.protected { return -1, false; }
-        content := trim(line.text);
+        content         := trim(line.text);
         found_string, _ := contains(content, "#string");
         if found_string { return -1, false; }
 
@@ -95,7 +95,7 @@ wrappable_extent :: (lines: []Out_Line, i: s64) -> s64, bool {
 
         if stack.count == 0 {
             if content.count == 0 || content[content.count - 1] != #char ";" { return -1, false; }
-            if k == i && first.text.count <= WRAP_WIDTH { return -1, false; }
+            if k == i && first.text.count <= WRAP_WIDTH                      { return -1, false; }
             return k, true;
         }
     }
@@ -169,7 +169,7 @@ is_cast_comma :: (s: string, k: s64) -> bool {
     while end > 0 && s[end-1] == #char " " { end -= 1; }
     start := end;
     while start > 0 && is_word_char(s[start-1]) { start -= 1; }
-    if start == end { return false; }
+    if start == end                                                                        { return false; }
     if slice(s, start, end - start) == "cast" && (start == 0 || !is_word_char(s[start-1])) { return true; }
     return start > 0 && s[start-1] == #char "," && is_cast_comma(s, start - 1);
 }
@@ -193,7 +193,7 @@ parse_wrap_group :: (s: string, k: *s64) -> Wrap_Segment {
     while k.* < s.count {
         item := parse_wrap_expr(s, k, false);
         if item.segments.count > 0 { array_add(*group.items, item); }
-        if k.* >= s.count { break; }
+        if k.* >= s.count          { break; }
         c := s[k.*];
         k.* += 1;
         if c != #char "," { break; }
@@ -205,7 +205,7 @@ parse_wrap_group :: (s: string, k: *s64) -> Wrap_Segment {
 is_breakable_open :: (s: string, k: s64) -> bool {
     if k == 0 { return false; }
     prev := s[k-1];
-    if s[k] != #char "(" { return prev == #char "."; }
+    if s[k] != #char "("   { return prev == #char "."; }
     if !is_word_char(prev) { return false; }
 
     start := k;
@@ -266,7 +266,13 @@ layout_wrap_expr :: (out: *[..]Out_Line, expr: Wrap_Expr, indent: s64, head: str
     append(*post, tail);
 
     if group.items.count == 1 && last_breakable_group(group.items[0]) >= 0 {
-        layout_wrap_expr(out, group.items[0], indent, builder_to_string(*pre), builder_to_string(*post));
+        layout_wrap_expr(
+            out,
+            group.items[0],
+            indent,
+            builder_to_string(*pre),
+            builder_to_string(*post),
+        );
         return;
     }
 

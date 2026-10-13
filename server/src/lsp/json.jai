@@ -144,7 +144,7 @@ parse_value :: (p: *Json_Parser, depth: int) -> Json_Value {
 }
 
 parse_literal :: (p: *Json_Parser, literal: string) -> bool {
-    if p.pos + literal.count > p.s.count { p.failed = true; return false; }
+    if p.pos + literal.count > p.s.count           { p.failed = true; return false; }
     if slice(p.s, p.pos, literal.count) != literal { p.failed = true; return false; }
     p.pos += literal.count;
     return true;

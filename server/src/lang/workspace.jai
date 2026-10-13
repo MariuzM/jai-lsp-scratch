@@ -65,7 +65,29 @@ doc_tokens :: (path: string, text: string) -> []Tok {
     return doc.tokens;
 }
 
-COMMON_MODULES :: string.["Basic", "String", "Math", "File", "File_Utilities", "File_Watcher", "Hash_Table", "Hash", "Sort", "Random", "Thread", "Process", "POSIX", "Socket", "System", "Unicode", "Bit_Operations", "Command_Line", "Atomics", "Pool", "Base64"];
+COMMON_MODULES :: string.[
+    "Basic",
+    "String",
+    "Math",
+    "File",
+    "File_Utilities",
+    "File_Watcher",
+    "Hash_Table",
+    "Hash",
+    "Sort",
+    "Random",
+    "Thread",
+    "Process",
+    "POSIX",
+    "Socket",
+    "System",
+    "Unicode",
+    "Bit_Operations",
+    "Command_Line",
+    "Atomics",
+    "Pool",
+    "Base64",
+];
 
 index_common_modules :: () {
     for COMMON_MODULES { index_module(it); }

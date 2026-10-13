@@ -180,9 +180,9 @@ find_local_decl_sites :: (path: string, content: string, name: string) -> [..]Lo
     if toks.count == 0 { return hits; }
     for i: 0..toks.count-1 {
         t := toks[i];
-        if t.type != .IDENT || t.name != name { continue; }
+        if t.type != .IDENT || t.name != name                                  { continue; }
         if i + 1 >= toks.count || toks[i+1].type != cast(Token_Type) #char ":" { continue; }
-        if i > 0 && toks[i-1].type == cast(Token_Type) #char "." { continue; }
+        if i > 0 && toks[i-1].type == cast(Token_Type) #char "."               { continue; }
         hit: Local_Hit;
         hit.line     = t.l0 - 1;
         hit.col      = t.c0 - 1;
@@ -222,9 +222,9 @@ find_scoped_local :: (path: string, content: string, name: string, line: s32, co
                 paren -= 1;
                 if paren < 0 { paren = 0; }
         }
-        if t.type != .IDENT || t.name != name { continue; }
+        if t.type != .IDENT || t.name != name                    { continue; }
         if i > 0 && toks[i-1].type == cast(Token_Type) #char "." { continue; }
-        if in_type_position(toks, i) { continue; }
+        if in_type_position(toks, i)                             { continue; }
 
         j := i;
         while j + 2 < toks.count && toks[j+1].type == cast(Token_Type) #char "," && toks[j+2].type == .IDENT { j += 2; }
@@ -235,7 +235,7 @@ find_scoped_local :: (path: string, content: string, name: string, line: s32, co
         if paren > 0 { depth = curly + 1; }
         p := i - 1;
         if p >= 0 && toks[p].type == cast(Token_Type) #char "*" { p -= 1; }
-        if p >= 0 && toks[p].type == .KEYWORD_FOR { depth = curly + 1; }
+        if p >= 0 && toks[p].type == .KEYWORD_FOR               { depth = curly + 1; }
 
         entry: Scope_Entry;
         entry.depth        = depth;
@@ -344,7 +344,7 @@ semantic_spans :: (content: string, path: string) -> [..]Ident_Span {
                 if paren > 0 { depth = curly + 1; }
                 p := i - 1;
                 if p >= 0 && toks[p].type == cast(Token_Type) #char "*" { p -= 1; }
-                if p >= 0 && toks[p].type == .KEYWORD_FOR { depth = curly + 1; }
+                if p >= 0 && toks[p].type == .KEYWORD_FOR               { depth = curly + 1; }
                 count, found := table_find(*local_counts, t.name);
                 if found { table_set(*local_counts, t.name, count + 1); }
                 else     { table_set(*local_counts, t.name, 1); }
@@ -359,7 +359,7 @@ semantic_spans :: (content: string, path: string) -> [..]Ident_Span {
         if is_local { continue; }
 
         index, found := table_find(*file_kinds, t.name);
-        if !found { index, found = table_find(kinds, t.name); }
+        if !found                { index, found = table_find(kinds, t.name); }
         if !found || index == -1 { continue; }
 
         span: Ident_Span;
