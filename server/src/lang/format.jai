@@ -66,9 +66,9 @@ has_then_keyword :: (content: string) -> bool {
 }
 
 is_case_line :: (content: string) -> bool {
-    if content.count < 4 { return false; }
+    if content.count < 4              { return false; }
     if slice(content, 0, 4) != "case" { return false; }
-    if content.count == 4 { return true; }
+    if content.count == 4             { return true; }
     return !is_word_char(content[4]);
 }
 
@@ -149,6 +149,7 @@ format_lines :: (text: string) -> string {
     align_groups(lines, .{parse_decl_line, ":= ", false});
     align_groups(lines, .{parse_case_line, "", false});
     align_if_else_chains(lines);
+    align_braced_loops(lines);
     align_groups(lines, .{parse_if_return_line, "", false});
 
     last := lines.count - 1;
@@ -162,7 +163,7 @@ format_lines :: (text: string) -> string {
         is_blank := !it.protected && it.text.count == 0;
         if is_blank {
             if !emitted_any { continue; }
-            if prev_blank { continue; }
+            if prev_blank   { continue; }
         } else {
             emitted_any = true;
         }
@@ -217,7 +218,7 @@ collapse_whitespace :: (s: string) -> string {
         if c == #char " " || c == #char "\t" {
             m := k;
             while m < s.count && (s[m] == #char " " || s[m] == #char "\t") { m += 1; }
-            if m >= s.count { break; }
+            if m >= s.count                                                { break; }
             if m + 1 < s.count && s[m] == #char "/" && s[m+1] == #char "/" { append(*builder, "  "); }
             else if !g_space_after_array_type && prev == #char "]" && prev_close_is_type && is_array_element_start(s[m]) {}
             else { append(*builder, " "); }
@@ -297,9 +298,9 @@ ensure_import_separation :: (lines: [..]Out_Line) -> [..]Out_Line {
         array_add(*result, lines[i]);
         line := lines[i];
         if line.protected || !is_import_line(line.text) { continue; }
-        if i + 1 >= lines.count { continue; }
+        if i + 1 >= lines.count                         { continue; }
         next := lines[i + 1];
-        if !next.protected && next.text.count == 0 { continue; }
+        if !next.protected && next.text.count == 0      { continue; }
         if !next.protected && is_import_line(next.text) { continue; }
         blank: Out_Line;
         array_add(*result, blank);

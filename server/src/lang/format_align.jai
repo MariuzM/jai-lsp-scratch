@@ -53,7 +53,7 @@ parse_const_line :: (line: Out_Line) -> Const_Line {
 
     start := k;
     while k < t.count && is_word_char(t[k]) { k += 1; }
-    if k == start { return result; }
+    if k == start                                     { return result; }
     if t[start] >= #char "0" && t[start] <= #char "9" { return result; }
     name := slice(t, start, k - start);
 
@@ -69,7 +69,7 @@ parse_const_line :: (line: Out_Line) -> Const_Line {
         found_foreign, _ := contains(rest, "#foreign");
         if !found_foreign { return result; }
     }
-    if starts_with(rest, "#string") { return result; }
+    if starts_with(rest, "#string")                                                                                          { return result; }
     if starts_with(rest, "struct") || starts_with(rest, "enum") || starts_with(rest, "union") || starts_with(rest, "inline") { return result; }
     found_semicolon, _ := contains(rest, #char ";");
     if !found_semicolon { return result; }
@@ -97,8 +97,8 @@ parse_if_return_line :: (line: Out_Line) -> Const_Line {
     if line.protected { return result; }
     t := line.text;
     k := line.indent * 4;
-    if t.count <= k + 3 { return result; }
-    if slice(t, k, 3) != "if " { return result; }
+    if t.count <= k + 3                           { return result; }
+    if slice(t, k, 3) != "if "                    { return result; }
     if has_then_keyword(slice(t, k, t.count - k)) { return result; }
 
     m     := k + 3;
@@ -111,8 +111,8 @@ parse_if_return_line :: (line: Out_Line) -> Const_Line {
             continue;
         }
         if c == #char "/" && m + 1 < t.count && t[m+1] == #char "/" { break; }
-        if c == #char "(" || c == #char "[" || c == #char "{" { depth += 1; }
-        if c == #char ")" || c == #char "]" || c == #char "}" { depth -= 1; }
+        if c == #char "(" || c == #char "[" || c == #char "{"       { depth += 1; }
+        if c == #char ")" || c == #char "]" || c == #char "}"       { depth -= 1; }
         if depth == 0 && jump_keyword_at(t, m) {
             pos = m;
             break;
@@ -183,14 +183,14 @@ parse_field_line :: (line: Out_Line) -> Const_Line {
 
     start := k;
     while k < t.count && is_word_char(t[k]) { k += 1; }
-    if k == start { return result; }
+    if k == start                                     { return result; }
     if t[start] >= #char "0" && t[start] <= #char "9" { return result; }
     name := slice(t, start, k - start);
 
     while k < t.count && t[k] == #char " " { k += 1; }
     if k >= t.count || t[k] != #char ":" { return result; }
     k += 1;
-    if k >= t.count { return result; }
+    if k >= t.count                           { return result; }
     if t[k] == #char ":" || t[k] == #char "=" { return result; }
     while k < t.count && t[k] == #char " " { k += 1; }
     rest := slice(t, k, t.count - k);
@@ -213,7 +213,7 @@ parse_assign_line :: (line: Out_Line) -> Const_Line {
 
     start := k;
     while k < t.count && (is_word_char(t[k]) || t[k] == #char "." || t[k] == #char "[" || t[k] == #char "]") { k += 1; }
-    if k == start { return result; }
+    if k == start                                                                                                                       { return result; }
     if !((t[start] >= #char "a" && t[start] <= #char "z") || (t[start] >= #char "A" && t[start] <= #char "Z") || t[start] == #char "_") { return result; }
     name := slice(t, start, k - start);
 
@@ -222,7 +222,7 @@ parse_assign_line :: (line: Out_Line) -> Const_Line {
         spaces += 1;
         k += 1;
     }
-    if spaces == 0 { return result; }
+    if spaces == 0                       { return result; }
     if k >= t.count || t[k] != #char "=" { return result; }
     k += 1;
     if k >= t.count || t[k] == #char "=" { return result; }
@@ -247,7 +247,7 @@ parse_decl_line :: (line: Out_Line) -> Const_Line {
 
     start := k;
     while k < t.count && is_word_char(t[k]) { k += 1; }
-    if k == start { return result; }
+    if k == start                                     { return result; }
     if t[start] >= #char "0" && t[start] <= #char "9" { return result; }
     name_end := k;
 
@@ -285,7 +285,7 @@ parse_case_line :: (line: Out_Line) -> Const_Line {
     if line.protected { return result; }
     t := line.text;
     k := line.indent * 4;
-    if t.count <= k + 4 { return result; }
+    if t.count <= k + 4         { return result; }
     if slice(t, k, 4) != "case" { return result; }
     after := t[k + 4];
     if after != #char " " && after != #char ";" { return result; }
@@ -294,7 +294,7 @@ parse_case_line :: (line: Out_Line) -> Const_Line {
     m    := k;
     while m < t.count {
         if t[m] == #char "\"" { m = skip_string(t, m); continue; }
-        if t[m] == #char ";" { semi = m; break; }
+        if t[m] == #char ";"  { semi = m; break; }
         m += 1;
     }
     if semi == -1 { return result; }
@@ -308,7 +308,7 @@ parse_case_line :: (line: Out_Line) -> Const_Line {
     }
     if spaces == 0 { return result; }
     body := slice(t, m, t.count - m);
-    if body.count == 0 { return result; }
+    if body.count == 0         { return result; }
     if starts_with(body, "//") { return result; }
 
     result.ok   = true;
@@ -350,7 +350,7 @@ parse_chain_line :: (line: Out_Line) -> Chain_Line {
         kind = .IF;
         k += 3;
     }
-    if kind == .NONE { return result; }
+    if kind == .NONE                                                          { return result; }
     if has_then_keyword(slice(t, line.indent * 4, t.count - line.indent * 4)) { return result; }
 
     stmt: string;
@@ -445,12 +445,38 @@ is_braced_chain :: (lines: []Out_Line, start: s64, end: s64) -> bool {
     return true;
 }
 
+align_braced_loops :: (lines: []Out_Line) {
+    i := 0;
+    while i < lines.count {
+        if !is_braced_loop(lines[i]) { i += 1; continue; }
+        indent := lines[i].indent;
+        j      := i + 1;
+        while j < lines.count && lines[j].indent == indent && is_braced_loop(lines[j]) { j += 1; }
+
+        if j - i >= 2 {
+            max_head := 0;
+            for k: i..j-1 { max_head = max(max_head, trim_right(parse_loop_line(lines[k]).name).count); }
+            for k: i..j-1 {
+                loop := parse_loop_line(lines[k]);
+                head := trim_right(loop.name);
+                builder: String_Builder;
+                for 1..indent { append(*builder, "    "); }
+                append(*builder, head);
+                for 1..(max_head - head.count + 1) { append(*builder, " "); }
+                append(*builder, loop.rest);
+                lines[k].text = builder_to_string(*builder);
+            }
+        }
+        i = j;
+    }
+}
+
 strip_then_before_jump :: (lines: []Out_Line) {
     for * lines {
         if it.protected || it.text.count == 0 { continue; }
         t := it.text;
         k := it.indent * 4;
-        if t.count <= k + 3 { continue; }
+        if t.count <= k + 3                                                           { continue; }
         if slice(t, k, 3) != "if " && (t.count <= k + 5 || slice(t, k, 5) != "else ") { continue; }
 
         m     := k;
@@ -462,8 +488,8 @@ strip_then_before_jump :: (lines: []Out_Line) {
                 continue;
             }
             if c == #char "/" && m + 1 < t.count && t[m+1] == #char "/" { break; }
-            if c == #char "(" || c == #char "[" || c == #char "{" { depth += 1; }
-            if c == #char ")" || c == #char "]" || c == #char "}" { depth -= 1; }
+            if c == #char "(" || c == #char "[" || c == #char "{"       { depth += 1; }
+            if c == #char ")" || c == #char "]" || c == #char "}"       { depth -= 1; }
             if depth == 0 && c == #char "t" && m > k && t[m-1] == #char " "
             && m + 4 < t.count && slice(t, m, 4) == "then" && t[m+4] == #char " " {
                 n := m + 4;
@@ -488,9 +514,9 @@ wrap_inline_controls :: (lines: []Out_Line) {
         prefix: string;
         chain := parse_chain_line(it);
         if chain.kind != .NONE {
-            if chain.stmt[0] == #char "{" { continue; }
+            if chain.stmt[0] == #char "{"     { continue; }
             if jump_keyword_at(chain.stmt, 0) { continue; }
-            if chain.kind == .ELSE { body = chain.stmt; }
+            if chain.kind == .ELSE            { body = chain.stmt; }
             else { body = tprint("then %", chain.stmt); }
             prefix = chain.prefix;
         } else {
@@ -510,11 +536,21 @@ wrap_inline_controls :: (lines: []Out_Line) {
 
 #scope_file
 
+is_braced_loop :: (line: Out_Line) -> bool {
+    if line.protected { return false; }
+    loop := parse_loop_line(line);
+    if !loop.ok || loop.rest[0] != #char "{" { return false; }
+    close := find_matching_close(loop.rest);
+    if close == -1 { return false; }
+    after := trim(slice(loop.rest, close + 1, loop.rest.count - close - 1));
+    return after.count == 0 || starts_with(after, "//");
+}
+
 parse_loop_line :: (line: Out_Line) -> Const_Line {
     result: Const_Line;
     t := line.text;
     k := line.indent * 4;
-    if t.count <= k + 6 { return result; }
+    if t.count <= k + 6                                       { return result; }
     if slice(t, k, 6) != "while " && slice(t, k, 4) != "for " { return result; }
 
     head_start := k;
@@ -525,7 +561,7 @@ parse_loop_line :: (line: Out_Line) -> Const_Line {
     while m < t.count && t[m] == #char " " { m += 1; }
     stmt := slice(t, m, t.count - m);
     if stmt.count == 0 || starts_with(stmt, "//") { return result; }
-    if ambiguous_spacing(stmt) { return result; }
+    if ambiguous_spacing(stmt)                    { return result; }
     found_semicolon, _ := contains(stmt, #char ";");
     if !found_semicolon { return result; }
 
@@ -545,7 +581,7 @@ condition_boundary :: (t: string, k: *s64) -> s64 {
         }
         if c == #char "(" || c == #char "[" { paren += 1; }
         if c == #char ")" || c == #char "]" { paren -= 1; }
-        if c == #char "{" && paren == 0 { return k.*; }
+        if c == #char "{" && paren == 0     { return k.*; }
         if c == #char " " && paren == 0 && k.* + 1 < t.count && t[k.* + 1] == #char " " {
             return k.*;
         }
@@ -584,7 +620,7 @@ brace_statement :: (stmt: string) -> string {
             continue;
         }
         if c == #char "/" && k + 1 < stmt.count && stmt[k+1] == #char "/" { break; }
-        if c == #char ";" { semi = k; }
+        if c == #char ";"                                                 { semi = k; }
         k += 1;
     }
     if semi == -1 { return stmt; }

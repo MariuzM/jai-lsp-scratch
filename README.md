@@ -276,6 +276,14 @@ for 1..count { advance(); }
 emit(it);  // trap: emit(it) runs AFTER the loop, once
 ```
 
+Consecutive single-line braced loops at the same indent align their blocks:
+
+```jai
+for phase.compiler_generated_object_files { array_add(*command, it); }
+for phase.support_object_files            { array_add(*command, it); }
+for phase.system_libraries                { array_add(*command, it); }
+```
+
 ### 14. Imports move to the top
 
 All top-level `#import` and `#load` statements are hoisted to the top of the file (after a leading

@@ -3,7 +3,7 @@
   "displayName": "Jai LSP Scratch",
   "description": "All-in-one Jai tooling - language server, formatter, and semantic highlighter.",
   "publisher": "mariuzm",
-  "version": "0.23.0",
+  "version": "0.24.0",
   "license": "MIT",
   "repository": {
     "type": "git",
