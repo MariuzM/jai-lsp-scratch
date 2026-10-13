@@ -287,8 +287,8 @@ hoist_imports :: (lines: [..]Out_Line) -> [..]Out_Line {
 
     result: [..]Out_Line;
     for i: 0..header-1 { array_add(*result, lines[i]); }
-    for imports { array_add(*result, it); }
-    for rest { array_add(*result, it); }
+    for imports        { array_add(*result, it); }
+    for rest           { array_add(*result, it); }
     return result;
 }
 
