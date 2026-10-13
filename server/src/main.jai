@@ -18,6 +18,7 @@
 #load "lang/format_split.jai";
 #load "lang/format_align.jai";
 #load "lang/format_html.jai";
+#load "lang/format_wrap.jai";
 
 #if OS == .WINDOWS {
     Windows      :: #import "Windows";

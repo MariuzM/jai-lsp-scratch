@@ -134,6 +134,7 @@ format_lines :: (text: string) -> string {
     strip_then_before_jump(lines);
     wrap_inline_controls(lines);
     normalize_spaces(lines);
+    lines = wrap_long_statements(lines);
     lines = hoist_imports(lines);
     lines = ensure_import_separation(lines);
 

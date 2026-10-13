@@ -339,7 +339,41 @@ PAGE :: #string HTML
 HTML
 ```
 
-### 16. Never touched
+### 16. Call and literal wrapping
+
+A `;`-terminated statement wider than 100 columns is broken Rust-style: the outermost call
+(`name(…)`) or array / struct literal (`.[…]`, `.{…}`) gets one argument per line with a trailing
+comma, recursing into arguments that still don't fit. A call whose only argument is itself
+breakable hugs it (`outer(inner(` … `));`). Statements already split across lines are re-flowed the
+same way, so they collapse back onto one line when they fit. Statements containing comments, code
+blocks, here-strings, or `,,` context arguments are left alone.
+
+Before:
+
+```jai
+run_quiet(.[
+    "xcodebuild", "archive", "-project", tprint("%/%.xcodeproj", ios, project.ios_scheme),
+    "-scheme", project.ios_scheme, "-quiet"], ios);
+```
+
+After:
+
+```jai
+run_quiet(
+    .[
+        "xcodebuild",
+        "archive",
+        "-project",
+        tprint("%/%.xcodeproj", ios, project.ios_scheme),
+        "-scheme",
+        project.ios_scheme,
+        "-quiet",
+    ],
+    ios,
+);
+```
+
+### 17. Never touched
 
 - Anything inside strings, `#string` here-strings (except `#string HTML` indentation, above), and
   block comments
